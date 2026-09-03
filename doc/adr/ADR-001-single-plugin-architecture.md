@@ -249,6 +249,8 @@ The project SHALL NOT infer that all payment methods behave like cards.
 
 Before this repository contained implementation code, the proposed architecture was exercised through conversational mock modeling.  These tests are useful design evidence but are **not** repository CI evidence and SHALL be recreated as executable project tests before the corresponding behavior is considered implemented.
 
+The full surviving record of that exercise is documented in [Pre-Implementation Kimai / Stripe Mock Exercise](../testing/preimplementation-mock-exercise.md).
+
 The modeling reported 103 passing cases across three groups:
 
 - 89 behavioral/adversarial cases;
@@ -1777,6 +1779,10 @@ This ADR SHOULD move from Proposed to Accepted only after a representative imple
 Acceptance does not require every future feature or open question to be solved.  It requires enough end-to-end evidence that the selected architecture is real rather than merely plausible.
 
 ## Evidence and References
+
+### Project design evidence
+
+- [Pre-Implementation Kimai / Stripe Mock Exercise](../testing/preimplementation-mock-exercise.md)
 
 ### Kimai 2.65.0 source reviewed during design
 

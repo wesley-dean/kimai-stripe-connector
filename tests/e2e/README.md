@@ -18,8 +18,8 @@ The compatibility baseline pins Kimai `2.65.0` rather than following the moving
 The environment is test-owned and disposable.
 
 `run.sh` creates a unique Docker Compose project name, starts fresh named volumes,
-and installs the checked-out connector into that project's plugin volume.  An
-EXIT/INT/TERM trap always runs:
+and installs a production-shaped connector stage into that project's plugin
+volume.  An EXIT/INT/TERM trap always runs:
 
 ```text
 docker compose down --volumes --remove-orphans
@@ -31,8 +31,9 @@ The cleanup destroys:
 - the MySQL container;
 - the Compose network;
 - the MySQL data volume;
-- the Kimai data volume; and
-- the installed-plugin volume.
+- the Kimai data volume;
+- the installed-plugin volume; and
+- the temporary local plugin staging directory.
 
 No test database or Kimai application state is intentionally reused between E2E
 runs.
@@ -43,6 +44,26 @@ runtime instead of being stored as a literal connection URI in the repository.
 Real Stripe sandbox credentials are supplied separately through CI/runtime secret
 injection when Stripe E2E coverage is enabled; they are never stored in this
 Compose file.
+
+## Runtime-shaped plugin staging
+
+The developer checkout may contain PHPUnit, PHPStan, Symfony test stubs, and other
+`require-dev` packages under the repository-local `vendor/` directory.  Those
+packages are not part of the runtime plugin artifact and can conflict with classes
+already supplied by Kimai if copied into `var/plugins/`.
+
+The harness therefore does not copy the checkout's `vendor/` tree into Kimai.
+Instead, `run.sh` creates a temporary plugin stage from the checked-out source and
+runs:
+
+```text
+composer install --no-dev --prefer-dist --optimize-autoloader
+```
+
+against the committed `composer.lock` inside that stage.  The staged plugin is
+then copied into Kimai.  This makes lifecycle E2E exercise the same dependency
+shape ADR-012 requires for a self-contained production plugin instead of testing a
+development workspace accidentally deployed as a plugin.
 
 ## Kimai startup health
 
@@ -66,6 +87,7 @@ The initial harness proves the plugin lifecycle before financial behavior exists
 ```text
 construct fresh Kimai + MySQL
 -> wait for healthy Kimai
+-> build production-shaped plugin stage from composer.lock
 -> copy plugin into var/plugins/KimaiStripeConnectorBundle
 -> kimai:reload
 -> verify bundle class resolves
@@ -81,11 +103,10 @@ plugin rather than a modification to Kimai core.
 
 ## Running locally
 
-Install plugin dependencies first:
+Requirements:
 
-```text
-composer install
-```
+- Docker with the Compose plugin; and
+- Composer available on `PATH`.
 
 Then run:
 
@@ -93,7 +114,8 @@ Then run:
 make e2e
 ```
 
-Docker with the Compose plugin must be available.
+The harness installs only the staged runtime dependency graph itself.  A prior
+repository-root `composer install` is not required for E2E.
 
 ## Future Stripe E2E
 

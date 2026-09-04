@@ -1,11 +1,14 @@
 ---
-# don't use MegaLinter to test reports or generated artifacts
+# Don't use MegaLinter to test reports or generated artifacts.
 ADDITIONAL_EXCLUDED_DIRECTORIES: [report, megalinter-reports, .git, site]
 
-# don't scan files listed in .gitignore (vendor, build output, generated docs, etc.)
+# Don't scan files listed in .gitignore (vendor, build output, generated docs, etc.).
 IGNORE_GITIGNORED_FILES: true
 
-# Disable linters with known project-specific limitations or redundant behavior.
+# Disable linters that are genuinely outside the project's adopted toolchain or
+# have known project-specific limitations.  PHPStan is the project's static
+# analyzer; running an unconfigured second analyzer (Psalm) would create a second,
+# conflicting static-analysis contract rather than additional enforcement.
 DISABLE_LINTERS:
   [
     REPOSITORY_DEVSKIM,
@@ -15,43 +18,52 @@ DISABLE_LINTERS:
     COPYPASTE_JSCPD,
     BASH_EXEC,
     SPELL_LYCHEE,
+    PHP_PSALM,
   ]
 
-# scan only new / updated files where the selected linter supports that mode
+# Scan only new / updated files where the selected linter supports that mode.
 VALIDATE_ALL_CODEBASE: false
 
-# don't print the alpaca -- it's cute, but we don't need it in the logs
+# Don't print the alpaca -- it's cute, but we don't need it in the logs.
 PRINT_ALPACA: false
 
-# fail the workflow when MegaLinter finds errors
+# Fail the workflow when MegaLinter finds errors.
 DISABLE_ERRORS: false
 
-# project-owned PHP linter configuration
+# Project-owned PHP linter configuration.
 PHP_PHPCS_CONFIG_FILE: phpcs.xml
 PHP_PHPSTAN_CONFIG_FILE: phpstan.neon.dist
 PHP_PHPCSFIXER_CONFIG_FILE: .php-cs-fixer.dist.php
 SPELL_CSPELL_CONFIG_FILE: .cspell.json
 
-# use prettier for JavaScript code formatting
+# The preserved ADR-001 rationale is intentionally a historical snapshot.  Keep
+# its prose and table whitespace unchanged; maintained Markdown remains subject to
+# markdown-table-formatter.
+MARKDOWN_MARKDOWN_TABLE_FORMATTER_FILTER_REGEX_EXCLUDE: >-
+  ^doc/adr/rationale/
+
+# Zizmor needs the workflow token for online audits of pinned public actions.
+# MegaLinter filters environment variables from linters unless explicitly allowed.
+ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
+  - GITHUB_TOKEN
+
+# Use Prettier for JavaScript code formatting.
 JAVASCRIPT_DEFAULT_STYLE: prettier
 
-# MegaLinter supports SARIF reporters; upload is gated by repository visibility
+# MegaLinter supports SARIF reporters; upload is gated by repository visibility.
 SARIF_REPORTER: true
 
-# only scan files in the checked-out change, not the entire Git history
-REPOSITORY_GITLEAKS_ARGUMENTS: --no-git
-
-# don't scan the .git directory GitHub creates at runtime
+# Don't scan the .git directory GitHub creates at runtime.
 REPOSITORY_TRUFFLEHOG_ARGUMENTS: "--exclude-paths=.trufflehogignore"
 
-# make sure Terraform modules are present when Checkov is applicable
+# Make sure Terraform modules are present when Checkov is applicable.
 REPOSITORY_CHECKOV_ARGUMENTS: "--download-external-modules true"
 
-# make sure Common Platform Enumerations (CPEs) are present when Grype is applicable
+# Make sure Common Platform Enumerations (CPEs) are present when Grype is applicable.
 REPOSITORY_GRYPE_ARGUMENTS: "--add-cpes-if-none"
 
-# start each run with a clean report directory
+# Start each run with a clean report directory.
 CLEAR_REPORT_FOLDER: true
 
-# shfmt conventions for repository shell code
+# shfmt conventions for repository shell code.
 BASH_SHFMT_ARGUMENTS: -i 2 -bn -ci -sr -kp

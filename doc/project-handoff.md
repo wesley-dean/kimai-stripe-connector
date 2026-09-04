@@ -18,12 +18,15 @@ As of this handoff:
 - the original large ADR-001 rationale is preserved under `doc/adr/rationale/`, while its independent decisions are split into smaller ADRs;
 - an inert Kimai plugin bundle skeleton exists;
 - PHP/Composer package metadata exists;
-- PHPUnit and PHPStan configuration exists;
+- `composer.lock` is committed from dependency resolution on the minimum supported PHP 8.2 runtime;
+- PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer are project-local Composer development tools;
+- `make check` runs the ordinary local PHP validation suite;
 - MegaLinter uses the PHP flavor and remains a zero-error/zero-warning gate with auto-fixes disabled;
-- PHP CI targets PHP 8.2, 8.3, 8.4, and 8.5;
+- PHP CI targets PHP 8.2, 8.3, 8.4, and 8.5 and installs the same committed dependency graph on every runtime;
 - a disposable Kimai 2.65.0 + MySQL E2E lifecycle harness exists under `tests/e2e/`;
 - the E2E harness constructs fresh containers/volumes, installs the plugin, reloads Kimai, verifies it, removes it, reloads again, and destroys all local test state;
 - Doxygen is configured to generate PHP reference documentation under ignored `doc/reference/`;
+- project-specific CONTRIBUTING, SUPPORT, SECURITY, configuration, threat-model, testing, and hosting documentation replaces the most misleading template residue;
 - no production Stripe mutation behavior has been implemented yet;
 - no real Stripe credential is committed or expected in the repository; and
 - no production/live Stripe payment has been performed by this project.
@@ -34,7 +37,9 @@ The current implementation-preparation branch is:
 chore/implementation-prep
 ```
 
-Do not assume that branch remains open forever; inspect current repository/PR state when beginning a new session.
+The active review surface is draft PR #5, `chore: prepare project for implementation`.
+
+Do not assume that branch/PR remains open forever; inspect current repository/PR state when beginning a new session.
 
 ## Product Goal
 
@@ -117,7 +122,7 @@ Use it for historical detail, not as a replacement for the focused current ADRs.
 
 ## Compatibility Contract
 
-ADR-004 currently establishes the initial implementation target:
+ADR-004 establishes the initial implementation target:
 
 ```text
 Kimai:             2.65.0 baseline
@@ -131,6 +136,8 @@ Credential model:  one least-privilege Stripe restricted key initially
 ```
 
 The connector initially follows the Stripe API version associated with the exact installed Stripe PHP SDK rather than independently overriding `Stripe-Version`.
+
+`composer.lock` was generated on PHP 8.2 and commits the exact current graph, including Stripe PHP 21.3.1.  PHP 8.2–8.5 CI uses `composer install` against that same lockfile.
 
 Dependency updates are compatibility-relevant behavioral changes and must receive the applicable tests under ADR-003.
 
@@ -272,6 +279,35 @@ Documentation-only, comment-only, typo, or formatting changes do not require art
 
 Use [`testing/test-matrix.md`](testing/test-matrix.md) to assign documented `CFG-*`, `PL-*`, `MNY-*`, `REC-*`, `CLN-*`, `NET-*`, `CON-*`, `KIM-*`, `STR-*`, and `THR-*` scenarios to the correct execution layer.
 
+## Local PHP Validation
+
+After `composer install`, the ordinary local PHP gate is:
+
+```text
+make check
+```
+
+which runs:
+
+```text
+PHPUnit
+-> PHPStan
+-> PHPCS
+-> PHP-CS-Fixer check-only
+```
+
+Additional explicit commands include:
+
+```text
+make test
+make analyse
+make lint
+make format-check
+make format
+```
+
+`make format` is an explicit developer action.  CI and MegaLinter do not auto-fix source.
+
 ## Disposable Kimai E2E
 
 The executable harness is:
@@ -287,7 +323,7 @@ It is based closely on Kimai's official Docker Compose model and pins:
 kimai/kimai2:2.65.0
 ```
 
-Every run gets a unique Compose project and fresh named volumes.  The shell harness installs the checked-out plugin into the disposable plugin volume, reloads Kimai, verifies the bundle, removes it, reloads again, and always executes cleanup via an EXIT/INT/TERM trap.
+Every run gets a unique Compose project and fresh named volumes.  The shell harness installs the checked-out self-contained plugin into the disposable plugin volume, reloads Kimai, verifies the bundle, removes it, reloads again, and always executes cleanup via an EXIT/INT/TERM trap.
 
 Cleanup includes:
 
@@ -317,13 +353,11 @@ Namespace:
 KimaiPlugin\KimaiStripeConnectorBundle\
 ```
 
-Kimai does not automatically install third-party Composer dependencies declared by an in-repository plugin.  The connector therefore carries a plugin-local `vendor/` tree in release artifacts and loads its own Composer autoloader from the bundle entrypoint.
+Kimai does not automatically install third-party Composer dependencies declared by an in-repository plugin.  The connector therefore carries a plugin-local `vendor/` tree in release artifacts and loads its own Composer autoloader during bundle construction before connector services are consumed.
 
 Do not modify Kimai's root `composer.json`, `composer.lock`, `vendor/`, or `config/bundles.php` as part of normal installation.
 
-The source repository does not commit `vendor/`.
-
-`composer.lock` is intended to be committed for reproducible development/release dependency resolution.  If it is absent in the current branch, generating and committing it is implementation-preparation work rather than a change to product architecture.
+The source repository does not commit `vendor/`; it does commit the connector's own `composer.lock`.
 
 ## Documentation Contract
 
@@ -362,7 +396,7 @@ Environment variables are primary.  File-backed secret injection is preferred fo
 
 See [`reference-hosting-environment.md`](reference-hosting-environment.md).
 
-The dogfooding environment includes container orchestration, Traefik, external SQL services, network-backed storage, scheduling, and private LAN/VPN access.  These are operational context, not hard dependencies of the OSS/plugin design.
+The dogfooding environment includes container orchestration, Traefik, external SQL services, network-backed storage, scheduling, and private LAN/VPN access.  These are operational context, not hard dependencies of the plugin design.
 
 Do not hard-code site-specific hostnames, addresses, domains, Swarm services, NFS paths, Jenkins job names, or Traefik labels into connector logic.
 
@@ -379,13 +413,15 @@ APPLY_FIXES: false
 
 A green workflow status is not sufficient if the report contains warnings.  Completion requires zero reported MegaLinter errors and zero reported MegaLinter warnings.
 
-The PHP workflow runs unit/static-analysis checks across the initial PHP compatibility range.
+The PHP workflow validates the committed Composer metadata/lockfile, installs the exact graph, then runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer across PHP 8.2–8.5.
 
 The Kimai E2E workflow exercises the real disposable plugin lifecycle.
 
 The Documentation workflow exercises Doxygen generation.
 
-The repository retains Dependabot, semver/release automation, CONTRIBUTING, SUPPORT, and the broad `.gitignore`.  Dependabot is extended for the Composer ecosystem.  The cspell configuration file is `.cspell.json`.
+Dependabot covers GitHub Actions and Composer dependencies.  Semver/release automation remains intentionally enabled during early development.
+
+CodeQL and OpenSSF Scorecard are not relied upon as current blocking controls while the repository remains private.
 
 ## License Status
 
@@ -411,18 +447,18 @@ This is a permanent supported operational fallback.
 
 ## Immediate Next Work
 
-After the implementation-preparation branch is accepted and clean, the next session should:
+After the implementation-preparation branch is accepted and clean, the next feature session should:
 
-1. ensure `composer.lock` is generated and committed;
-2. verify all PHP, MegaLinter, Documentation, and Kimai E2E workflows complete cleanly;
-3. implement configuration parsing and validation;
-4. implement stable instance identity;
-5. implement exact decimal-to-minor-unit money handling for the accepted initial currency scope;
-6. implement metadata value objects/validation;
-7. implement safe Stripe-client construction and app identification;
-8. add the corresponding `CFG-*`, `MNY-*`, metadata, and threat-model tests;
-9. only then begin real Payment Link mutation behavior; and
-10. add real Stripe sandbox E2E only when an authorized sandbox key is available.
+1. implement configuration parsing and validation;
+2. implement stable instance identity;
+3. implement exact decimal-to-minor-unit money handling for the accepted initial currency scope;
+4. implement metadata value objects/validation;
+5. implement safe Stripe-client construction and app identification;
+6. add the corresponding `CFG-*`, `MNY-*`, metadata, and threat-model tests;
+7. only then begin real Payment Link mutation behavior; and
+8. add real Stripe sandbox E2E only when an authorized sandbox restricted key is available.
+
+Before feature work starts, PR #5 itself must still be inspected for fully clean PHP, MegaLinter, Documentation, and Kimai E2E results and reviewed by the project owner.
 
 Do not skip directly from the inert bundle skeleton to invoice paid-state mutation.
 

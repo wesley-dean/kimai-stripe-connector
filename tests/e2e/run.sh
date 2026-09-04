@@ -2,8 +2,10 @@
 
 set -euo pipefail
 
-readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-readonly REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
+REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
+readonly REPOSITORY_ROOT
 readonly COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 readonly PROJECT_NAME="kimai-stripe-connector-e2e-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-$$}"
 readonly PLUGIN_NAME="KimaiStripeConnectorBundle"
@@ -13,11 +15,40 @@ compose() {
   docker compose --project-name "${PROJECT_NAME}" --file "${COMPOSE_FILE}" "$@"
 }
 
+diagnostics() {
+  local kimai_container
+
+  echo "E2E environment failed; preserving diagnostics before teardown." >&2
+  compose ps >&2 || true
+
+  kimai_container="$(compose ps --quiet kimai 2>/dev/null || true)"
+  if [[ -n "${kimai_container}" ]]; then
+    echo "Kimai container health state:" >&2
+    docker inspect --format '{{json .State.Health}}' "${kimai_container}" >&2 || true
+  fi
+
+  echo "Recent Kimai and database logs:" >&2
+  compose logs --no-color --tail 200 kimai sqldb >&2 || true
+}
+
 cleanup() {
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 }
 
-trap cleanup EXIT INT TERM
+on_exit() {
+  local status=$?
+
+  trap - EXIT INT TERM
+  if ((status != 0)); then
+    diagnostics
+  fi
+  cleanup
+  exit "${status}"
+}
+
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ ! -f "${REPOSITORY_ROOT}/vendor/autoload.php" ]]; then
   echo "error: plugin-local Composer dependencies are missing; run composer install first" >&2

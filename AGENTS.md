@@ -2,22 +2,33 @@
 
 This repository is expected to be used by humans and AI/LLM-based development tools.  This file provides the minimum context an AI agent should load before proposing or making changes.
 
+## Primary Execution Guide
+
+For a fresh development session, start with:
+
+`doc/implementation-playbook.md`
+
+That document is the primary execution guide.  It defines the expected research sequence, implementation phases, autonomy boundaries, test layers, documentation-maintenance rules, and explicit stop conditions.  A session should normally be able to receive an instruction such as "read `doc/implementation-playbook.md` and follow it" and make meaningful progress without needing prior conversational context.
+
+The playbook does not replace the project documentation below.  It tells the session when and how to use those documents while doing the work.
+
 ## Read These First
 
 Before substantive project work, read these documents in order:
 
-1. `doc/decisions.md`
-2. `doc/project-handoff.md`
-3. `doc/configuration.md`
-4. `doc/threat-model.md`
-5. `doc/evaluated-tools.md`
-6. `doc/reference-hosting-environment.md`
-7. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
-8. `doc/adr/ADR-001-single-plugin-architecture.md`
-9. `doc/testing/preimplementation-mock-exercise.md`
-10. `doc/testing/e2e-stripe-sandbox.md`
-11. `README.md`
-12. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
+1. `doc/implementation-playbook.md`
+2. `doc/decisions.md`
+3. `doc/project-handoff.md`
+4. `doc/configuration.md`
+5. `doc/threat-model.md`
+6. `doc/evaluated-tools.md`
+7. `doc/reference-hosting-environment.md`
+8. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
+9. `doc/adr/ADR-001-single-plugin-architecture.md`
+10. `doc/testing/preimplementation-mock-exercise.md`
+11. `doc/testing/e2e-stripe-sandbox.md`
+12. `README.md`
+13. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
 
 Use `doc/decisions.md` as the fast index of accepted and proposed ADR decisions.  It is intentionally concise and should help determine which ADRs are relevant to the task at hand.  It is not authoritative over the ADRs themselves: when implementing, reviewing, or interpreting a decision, read the referenced ADR in full.  If `doc/decisions.md` conflicts with an ADR, the ADR controls.
 
@@ -122,6 +133,8 @@ When changing configuration semantics, update `doc/configuration.md` and associa
 
 When introducing or changing a security boundary, credential scope, external interface, destructive operation, persistence mechanism, or release path, update `doc/threat-model.md` and the associated abuse/security test backlog.
 
+When changing autonomous execution order, stop conditions, or phase expectations, update `doc/implementation-playbook.md`.
+
 Distinguish facts, design decisions, inferences, synthetic evidence, and unresolved questions.
 
 ## Testing Philosophy
@@ -218,5 +231,7 @@ If the session changed an architectural decision or ADR status, update `doc/deci
 If the session changed configuration behavior, update `doc/configuration.md`.
 
 If the session changed a trust boundary, privilege, destructive action, external interface, persistence layer, supported payment lifecycle, or distribution path, update `doc/threat-model.md`.
+
+If the session changed the execution sequence or autonomy/stop-condition policy, update `doc/implementation-playbook.md`.
 
 The repository should be sufficient context for a new chat/session without relying on memory from an earlier conversation.

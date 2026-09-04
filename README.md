@@ -29,19 +29,28 @@ The main architecture decision is currently **Proposed**, not Accepted.  Accepta
 
 ## Start Here
 
+For a fresh implementation session, begin with [`doc/implementation-playbook.md`](doc/implementation-playbook.md).  It is the primary execution guide and is intentionally written so a human or AI/LLM development session can be told to read it and proceed with ordinary reversible work until it reaches a documented stop condition.
+
+A minimal handoff instruction can therefore be:
+
+> Inspect this repository, read `doc/implementation-playbook.md`, and follow it.  Make reasonable reversible engineering decisions autonomously, keep the repository documentation synchronized with the work, and do not merge or release anything without explicit approval.
+
+The playbook then directs the session through the supporting documents below.
+
 Humans and AI/LLM development tools should read these documents before substantive implementation work:
 
 1. [`AGENTS.md`](AGENTS.md)
-2. [`doc/decisions.md`](doc/decisions.md)
-3. [`doc/project-handoff.md`](doc/project-handoff.md)
-4. [`Configuration Model`](doc/configuration.md)
-5. [`Threat Model`](doc/threat-model.md)
-6. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
-7. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
-8. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
-9. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
-10. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
-11. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
+2. [`Implementation Playbook`](doc/implementation-playbook.md)
+3. [`doc/decisions.md`](doc/decisions.md)
+4. [`doc/project-handoff.md`](doc/project-handoff.md)
+5. [`Configuration Model`](doc/configuration.md)
+6. [`Threat Model`](doc/threat-model.md)
+7. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
+8. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
+9. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
+10. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
+11. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+12. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
 
 The handoff document records the project history, hard constraints, current decisions, reference environment, unresolved questions, known template residue, and recommended next work so a new development session does not need access to earlier conversations.
 

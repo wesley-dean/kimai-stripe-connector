@@ -51,8 +51,13 @@ SPELL_CSPELL_CONFIG_FILE: .cspell.json
 # markdownlint and markdown-table-formatter.
 MARKDOWN_MARKDOWNLINT_FILTER_REGEX_EXCLUDE: >-
   ^doc/adr/rationale/
+
+# The ADR-001 rationale and pre-implementation mock exercise are historical design
+# evidence.  Their table whitespace is not a maintained presentation contract, so
+# do not rewrite those records solely to satisfy the table formatter.  Markdownlint
+# still validates the mock exercise normally.
 MARKDOWN_MARKDOWN_TABLE_FORMATTER_FILTER_REGEX_EXCLUDE: >-
-  ^doc/adr/rationale/
+  ^(doc/adr/rationale/|doc/testing/preimplementation-mock-exercise\.md$)
 
 # Zizmor needs the workflow token for online audits of pinned public actions.
 # MegaLinter filters environment variables from linters unless explicitly allowed.

@@ -88,15 +88,23 @@ readonly PLUGIN_STAGE
 # Symfony, or other require-dev packages under vendor/; copying that tree into
 # Kimai would test a development workspace rather than the self-contained runtime
 # artifact required by ADR-012 and can collide with Kimai's own dependencies.
+# Test source/stubs are also excluded so the staged tree models the production
+# plugin rather than merely relying on --no-dev to keep them out of the autoloader.
 tar \
   -C "${REPOSITORY_ROOT}" \
   --exclude='./.git' \
   --exclude='./vendor' \
+  --exclude='./tests' \
   --exclude='./build' \
   --exclude='./coverage' \
   --exclude='./dist' \
   --exclude='./doc/reference' \
   -cf - . | tar -C "${PLUGIN_STAGE}" -xf -
+
+if [[ -e "${PLUGIN_STAGE}/tests" ]]; then
+  echo "error: production-shaped plugin stage contains test artifacts" >&2
+  exit 1
+fi
 
 composer install \
   --working-dir="${PLUGIN_STAGE}" \

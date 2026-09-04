@@ -1,11 +1,11 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * @file
  * @brief Loads the connector's Symfony service configuration.
  */
+
+declare(strict_types=1);
 
 namespace KimaiPlugin\KimaiStripeConnectorBundle\DependencyInjection;
 

@@ -41,16 +41,17 @@ Read in this order:
 1. [`AGENTS.md`](../AGENTS.md)
 2. [`decisions.md`](decisions.md)
 3. [`project-handoff.md`](project-handoff.md)
-4. [`configuration.md`](configuration.md)
-5. [`threat-model.md`](threat-model.md)
-6. [`documentation.md`](documentation.md)
-7. [`testing/test-matrix.md`](testing/test-matrix.md)
-8. [`testing/preimplementation-mock-exercise.md`](testing/preimplementation-mock-exercise.md)
-9. [`testing/e2e-stripe-sandbox.md`](testing/e2e-stripe-sandbox.md)
-10. [`reference-hosting-environment.md`](reference-hosting-environment.md)
-11. [`evaluated-tools.md`](evaluated-tools.md) when revisiting product selection/history
-12. [`README.md`](../README.md)
-13. relevant repository automation/configuration
+4. [`operator-runbook.md`](operator-runbook.md)
+5. [`configuration.md`](configuration.md)
+6. [`threat-model.md`](threat-model.md)
+7. [`documentation.md`](documentation.md)
+8. [`testing/test-matrix.md`](testing/test-matrix.md)
+9. [`testing/preimplementation-mock-exercise.md`](testing/preimplementation-mock-exercise.md)
+10. [`testing/e2e-stripe-sandbox.md`](testing/e2e-stripe-sandbox.md)
+11. [`reference-hosting-environment.md`](reference-hosting-environment.md)
+12. [`evaluated-tools.md`](evaluated-tools.md) when revisiting product selection/history
+13. [`README.md`](../README.md)
+14. relevant repository automation/configuration
 
 Use `decisions.md` to locate the ADRs that govern the task.  Read the actual ADR before implementing or changing that decision.
 
@@ -275,6 +276,7 @@ When changing:
 - architecture -> update/add ADR and `decisions.md`;
 - configuration -> update `configuration.md`;
 - trust boundary/credential/external interface/destructive behavior -> update `threat-model.md`;
+- operator procedures/incident response -> update `operator-runbook.md`;
 - test architecture -> update `testing/test-matrix.md` or related testing docs;
 - packaging/compatibility -> update the governing ADR and handoff;
 - autonomous sequence/stop conditions -> update this playbook; and
@@ -302,7 +304,7 @@ Do not merge without explicit authorization unless existing deliberate repositor
 
 ## Implementation Phases
 
-The architectural preparation phase is complete enough for implementation.  Phases 1 through 4 are merged.  Current work is Phase 5 on draft PR #10 unless repository state shows that PR has since been accepted/merged.
+The architectural preparation and functional implementation through Phase 5 are merged.  Current work is Phase 6 operator documentation on draft PR #11 unless repository state shows that PR has since been accepted/merged.
 
 ### Phase 1: Foundation and repository scaffold — merged
 
@@ -361,35 +363,35 @@ Established:
 
 Do not reopen Phase 4 merely because a stronger full hosted-payment E2E remains future evidence.  That gap is explicitly documented and should be addressed in the appropriate later evidence/release phase unless new evidence reveals a Phase 4 defect.
 
-### Phase 5: Cleanup — current draft work
+### Phase 5: Cleanup — merged
 
-Implement and validate conservative orphan inspection/deactivation under ADR-010.
-
-Required current contract:
+Established under ADR-010:
 
 - `kimai:stripe:cleanup` plus `--dry-run`;
-- global + reconciliation capability enablement, with no third cleanup switch initially;
+- global + reconciliation capability enablement, with no third cleanup switch;
 - successful Kimai lookup proving invoice absence;
 - exactly one current-instance managed Payment Link for the logical invoice;
 - inclusive configured grace-age threshold;
 - current active Payment Link state;
 - positive proof of terminal/unpaid Stripe evidence rather than mere lack of success;
 - paid/open/processing/unknown/contradictory evidence retained;
-- repeat Kimai lookup before mutation;
-- repeat managed Payment Link discovery before mutation;
-- repeat child payment-evidence discovery before mutation;
-- repeat pure eligibility planning before mutation;
+- repeated Kimai lookup before mutation;
+- repeated managed Payment Link discovery before mutation;
+- repeated child payment-evidence discovery before mutation;
+- repeated pure eligibility planning before mutation;
 - final Stripe target retrieve/metadata/creation/active-state validation;
 - only permitted Stripe mutation is monotonic `active=false`;
 - retryable uncertain update outcome; and
 - ADR-013 batch/result semantics.
 
-Cleanup is never allowed to guess through Kimai unavailability, payment ambiguity, or stale one-link cardinality evidence.
+Phase 5 was owner-reviewed and merged through PR #10.  Cleanup is never allowed to guess through Kimai unavailability, payment ambiguity, or stale one-link cardinality evidence.
 
-### Phase 6: Operator runbook
+### Phase 6: Operator runbook — current draft work
 
-Document at least:
+Document and validate operational procedures for:
 
+- routine reconciliation and cleanup command use;
+- scheduler handling of ADR-013 exit codes;
 - Stripe paid / Kimai unpaid;
 - Kimai failure after link creation;
 - conflicting/multiple links;
@@ -400,6 +402,8 @@ Document at least:
 - Kimai compatibility failure after upgrade;
 - disabling/removing the plugin; and
 - return to manual billing.
+
+The runbook must preserve the same fail-closed boundaries as the implementation.  It must not teach operators to force automatic state by editing metadata, delete paid evidence, broaden Stripe permissions without need, or treat retries as a substitute for human accounting judgment.
 
 ### Phase 7: Compatibility and release evidence
 

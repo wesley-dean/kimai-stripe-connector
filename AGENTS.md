@@ -38,18 +38,21 @@ Before substantive work:
 1. `doc/implementation-playbook.md`
 2. `doc/decisions.md`
 3. `doc/project-handoff.md`
-4. `doc/configuration.md`
-5. `doc/threat-model.md`
-6. `doc/documentation.md`
-7. `doc/testing/test-matrix.md`
-8. relevant ADRs discovered through `doc/decisions.md`
-9. `doc/testing/preimplementation-mock-exercise.md`
-10. `doc/testing/e2e-stripe-sandbox.md`
-11. `doc/reference-hosting-environment.md`
-12. `README.md`
-13. relevant CI/tooling/contribution files
+4. `doc/operator-runbook.md`
+5. `doc/configuration.md`
+6. `doc/threat-model.md`
+7. `doc/documentation.md`
+8. `doc/testing/test-matrix.md`
+9. relevant ADRs discovered through `doc/decisions.md`
+10. `doc/testing/preimplementation-mock-exercise.md`
+11. `doc/testing/e2e-stripe-sandbox.md`
+12. `doc/reference-hosting-environment.md`
+13. `README.md`
+14. relevant CI/tooling/contribution files
 
 `doc/decisions.md` is an index, not a substitute for ADRs.  If an index summary conflicts with an ADR, the ADR controls.
+
+`doc/operator-runbook.md` is the operational guide for routine commands, incident response, credential rotation, disablement/removal, and manual fallback.  It does not override an Accepted ADR or the explicit configuration/security contracts.
 
 All current numbered ADRs (000–013) are Accepted as of 2026-09-04.
 
@@ -185,7 +188,7 @@ construct fresh Compose project and volumes
 
 Do not repurpose the long-lived dogfooding Kimai environment as the test fixture.
 
-Real Stripe sandbox tests will reuse this disposable Kimai environment when authorized sandbox credentials are available.
+The manual real Stripe sandbox workflow remains a separate credentialed contract probe; ordinary pull-request CI remains credential-free.
 
 ## Financial-State Rules
 
@@ -237,7 +240,7 @@ MANUAL_REVIEW_REQUIRED
 INTERNAL_ERROR
 ```
 
-Use these meanings consistently across CLI output, logs, tests, and runbooks.
+Use these meanings consistently across CLI output, logs, tests, and runbooks.  Operational handling for each category is documented in `doc/operator-runbook.md`.
 
 ## Documentation
 

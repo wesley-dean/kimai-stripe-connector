@@ -4,11 +4,16 @@ Date: 2026-09-04
 
 ## Purpose
 
-This document gives a new human or AI/LLM engineering session enough current context to resume `kimai-stripe-connector` without the conversation that produced the project.
+This document gives a new human or AI/LLM engineering session enough current
+context to resume `kimai-stripe-connector` without the conversation that produced
+the project.
 
-For implementation work, read this document, [`implementation-playbook.md`](implementation-playbook.md), and [`decisions.md`](decisions.md).  Accepted ADRs and explicit source contracts remain authoritative over this handoff.
+For implementation work, read this document, `implementation-playbook.md`,
+`decisions.md`, and the relevant Accepted ADRs.  For routine operation and incident
+response, use `operator-runbook.md`.
 
-Do not merge, release, make the repository public, use live Stripe credentials, or perform live financial mutation without explicit owner authorization.
+Do not merge, release, make the repository public, use live Stripe credentials, or
+perform live financial mutation without explicit owner authorization.
 
 ## Current State
 
@@ -19,36 +24,44 @@ Phase 1 -> PR #5 foundation / production-shaped Kimai packaging
 Phase 2 -> PR #6 configuration, identity, money, metadata, result primitives
 Phase 3 -> PR #8 Payment Link capability + real Stripe sandbox contract probe
 Phase 4 -> PR #9 conservative reconciliation + Kimai paid-state persistence
+Phase 5 -> PR #10 conservative orphan cleanup
 ```
 
-Phase 4 was owner-reviewed, accepted, and merged on 2026-09-04.  Its merge commit is:
+Phase 5 was owner-reviewed, accepted, and merged on 2026-09-04.  Its merge commit
+is:
 
 ```text
-f8420fdcebcd4a3e9c69dd0f2bbafa457b71a927
+fc62c2f3db0187b4b0be5b20f08da66ebf203378
 ```
 
-Current work is **Phase 5: Conservative Orphan Cleanup** on:
+Current work is **Phase 6: Operator Runbook** on:
 
 ```text
-feat/phase-5-cleanup
+docs/phase-6-operator-runbook
 ```
 
-with draft PR #10:
+with draft PR #11:
 
 ```text
-feat: implement phase 5 conservative cleanup
+docs: add phase 6 operator runbook
 ```
 
-PR #10 was intentionally opened early to obtain CI feedback while implementation and documentation are still changing.  Inspect its current tip, CI, review threads, and MegaLinter report before resuming.  Never merge it without explicit owner approval.
+PR #11 adds operator guidance for already merged behavior.  It must not broaden
+Stripe permissions, connector mutation authority, supported compatibility, or
+accounting automation.
 
-All numbered ADRs 000 through 013 are Accepted.  ADR-010 governs cleanup.  ADR-013 supplies the shared operator result taxonomy and process exit-code vocabulary.
+All numbered ADRs 000 through 013 are Accepted.  ADR-009 governs reconciliation,
+ADR-010 governs cleanup, ADR-011 governs partial-failure/idempotency behavior, and
+ADR-013 supplies the shared operator result taxonomy and process exit codes.
 
 ## Architecture Boundaries
 
 Unless a later Accepted ADR changes them:
 
-- one Kimai plugin contains Payment Link and reconciliation capabilities with shared common primitives;
-- cleanup is an operator-invoked maintenance action on the reconciliation side rather than a third independently configurable capability;
+- one Kimai plugin contains Payment Link and reconciliation capabilities with
+  shared common primitives;
+- cleanup is an operator-invoked maintenance action on the reconciliation side
+  rather than a third independently configurable capability;
 - Kimai is authoritative for invoice/business state;
 - Stripe is authoritative for payment movement and Stripe objects;
 - there is no connector-owned payment ledger/database;
@@ -56,33 +69,31 @@ Unless a later Accepted ADR changes them:
 - no public Kimai ingress or Stripe webhook is required;
 - Stripe Payment Links remain the customer payment surface;
 - Payment Link generation and reconciliation can be enabled independently;
-- manual Payment Link creation and manual reconciliation remain permanent fallbacks;
+- manual Payment Link creation and manual reconciliation remain permanent
+  fallbacks;
 - ambiguity causes no automatic financial mutation;
 - false negatives are preferred to false-positive financial state changes;
 - paid orphans are retained for accounting review;
 - refunds/disputes never automatically reverse historical Kimai paid state; and
-- cleanup retains uncertainty rather than treating age alone as permission to mutate.
+- cleanup retains uncertainty rather than treating age alone as permission to
+  mutate.
 
-## Phase 4 Baseline
+## Compatibility Baseline
 
-Phase 4 is now the merged baseline, not pending work.
+The current validated baseline remains:
 
-It provides:
+```text
+Kimai:             2.65.0
+PHP:               >=8.2 <8.6
+Stripe PHP SDK:    ^21.3.1
+Payment methods:   card only
+Money:             integer minor units
+Currency scope:    ordinary two-decimal currencies
+Metadata version:  1
+Stripe credential: one least-privilege restricted key
+```
 
-- read-only Stripe discovery of connector-managed Payment Links, Checkout Sessions, PaymentIntents, and Charges;
-- pure fail-closed reconciliation planning;
-- exact amount/currency/metadata/object-relationship validation;
-- paid-orphan and refund/dispute reporting without automatic reversal;
-- shared exact conversion of Kimai framework floats through `Money::fromFloat()`;
-- last-moment Kimai invoice revalidation before a paid-state write;
-- payment dates derived from the proven Stripe Charge `created` timestamp;
-- persistence through Kimai 2.65 `InvoiceService::saveInvoice()`;
-- `kimai:stripe:reconcile` and `--dry-run`; and
-- stable ADR-013 process exit codes.
-
-The merged Phase 4 validation checkpoint contained 171 PHPUnit tests / 380 assertions across PHP 8.2 through 8.5, PHPStan level 8, PHPCS, PHP-CS-Fixer check mode, Documentation, disposable Kimai E2E, and MegaLinter with every enabled linter at zero errors and zero warnings.
-
-A full hosted Stripe test-card Checkout through real reconciliation remains deliberately unproven.  Do not imply that lower-layer green tests prove it.
+Do not broaden compatibility claims without executable evidence.
 
 ## Stripe Permission Baseline
 
@@ -98,15 +109,51 @@ Prices:             None
 Everything else:   None
 ```
 
-Phase 5 expects no permission expansion.  Payment Link deactivation uses the already-required Payment Links Write permission.
+Payment Link deactivation in Phase 5 uses the already-required Payment Links Write
+permission.  No Phase 5 permission expansion was required.
 
-The sandbox key is stored in GitHub Actions environment `stripe-sandbox` as secret `STRIPE_SANDBOX_RESTRICTED_KEY`.  Never paste it into chat, source, docs, PR comments, committed `.env`, Compose files, or test fixtures.  Do not broaden permissions without executable evidence that the current least-privilege set is insufficient.
+The sandbox key is stored in GitHub Actions environment `stripe-sandbox` as secret
+`STRIPE_SANDBOX_RESTRICTED_KEY`.  Never paste it into chat, source, docs, PR
+comments, committed `.env`, Compose files, or test fixtures.
 
-## Phase 5 Cleanup Contract
+## Merged Reconciliation Behavior
 
-ADR-010 allows automatic deactivation only for a **proven stale unpaid orphan**.
+Phase 4 provides:
 
-Cleanup must prove all of these facts before mutation:
+```text
+php bin/console kimai:stripe:reconcile
+php bin/console kimai:stripe:reconcile --dry-run
+```
+
+Reconciliation:
+
+- discovers connector-managed Payment Links for the configured Kimai instance;
+- reads Checkout Session -> PaymentIntent -> Charge evidence through Stripe;
+- requires exact metadata, invoice identity, amount, currency, and object
+  relationships;
+- changes Kimai toward paid only with strong mutually consistent evidence;
+- never accepts a caller-supplied invoice number or desired state;
+- re-reads Kimai immediately before persistence;
+- uses Stripe Charge `created` as the source payment timestamp;
+- persists through Kimai `InvoiceService::saveInvoice()`;
+- treats already-paid state as an idempotent no-op; and
+- never automatically reverses historical paid state for later refund/dispute.
+
+There is no internal distributed reconciliation lock.  Schedulers SHOULD avoid
+overlapping runs.
+
+## Merged Cleanup Behavior
+
+Phase 5 provides:
+
+```text
+php bin/console kimai:stripe:cleanup
+php bin/console kimai:stripe:cleanup --dry-run
+```
+
+ADR-010 permits automatic deactivation only for a **proven stale unpaid orphan**.
+
+Cleanup must prove:
 
 ```text
 connector-managed Payment Link
@@ -122,119 +169,37 @@ connector-managed Payment Link
 + successful revalidation immediately before the write
 ```
 
-If any fact cannot be proven, cleanup retains the Payment Link.
-
-Paid orphans are `MANUAL_REVIEW_REQUIRED`.  Multiple competing managed links are `CONFLICT`.  Kimai/Stripe read failures never authorize cleanup.
-
-### Conclusively unpaid evidence
-
-The current Phase 5 planner is intentionally narrower than reconciliation's ordinary `NO_CHANGE` result.  Automatic cleanup currently recognizes only:
+Automatic cleanup currently recognizes only:
 
 - a managed Payment Link with no Checkout Sessions; or
 - an `expired` + `unpaid` Checkout Session with no PaymentIntent/Charge; or
-- an `expired` + `unpaid` Checkout Session whose PaymentIntent is `canceled` or `requires_payment_method`, has received zero money, has no latest Charge, and has no Charge evidence.
+- an `expired` + `unpaid` Checkout Session whose PaymentIntent is `canceled` or
+  `requires_payment_method`, has received zero money, has no latest Charge, and has
+  no Charge evidence.
 
-An `open` Checkout Session, a processing PaymentIntent, an unknown future Stripe status, partial financial evidence, a Charge, or other unsupported state is retained for review rather than inferred to be unpaid.
+Open, processing, unknown, contradictory, paid, refunded, disputed, or otherwise
+ambiguous evidence is retained.
 
-## Phase 5 Production Shape
+Before a live deactivation, cleanup repeats:
 
-New source lives under `Cleanup/`.
+1. Kimai invoice lookup;
+2. current-instance managed Payment Link discovery;
+3. exact-one-link proof;
+4. Stripe child payment-evidence discovery; and
+5. pure cleanup planning.
 
-Important classes currently include:
-
-```text
-CleanupPlan
-CleanupPlanner
-CleanupItemOutcome
-CleanupGatewayException
-CleanupStripeGateway
-StripeCleanupGateway
-CleanupService
-CleanupServiceFactory
-StripeCleanupServiceFactory
-CleanupCommand
-```
-
-Phase 5 deliberately reuses these Phase 4 read boundaries:
+The Stripe writer then retrieves the selected target again and verifies exact ID,
+metadata, creation timestamp, and active state before setting:
 
 ```text
-ReconciliationStripeGateway / StripeReconciliationGateway
-ReconciliationInvoiceStore / KimaiReconciliationInvoiceStore
-ManagedPaymentLinkEvidence
-ReconciliationCandidate and child evidence objects
-ReconciliationPlanner
+active=false
 ```
-
-`ManagedPaymentLinkEvidence` now optionally retains Stripe Payment Link `created` and `active` fields.  Production Stripe discovery populates them when available; cleanup fails closed if the age or active-state evidence needed for mutation is unavailable.
-
-## Cleanup Stripe Mutation Boundary
-
-`StripeCleanupGateway` is intentionally narrow.  Its only mutation is:
-
-```text
-Payment Link active=true -> active=false
-```
-
-Before that update it retrieves the target Payment Link and verifies:
-
-- exact Payment Link ID;
-- exact connector metadata;
-- unchanged Stripe creation timestamp; and
-- current active state.
 
 It cannot delete Payment Links or perform generalized Stripe updates.
 
-The update is monotonic and idempotent.  If an API timeout occurs after Stripe may have committed the update, the operation reports `RETRYABLE`; a later run can retrieve the link and observe that it is already inactive.
+## Operator Result Contract
 
-## Cleanup Revalidation / Concurrency
-
-There is no transaction spanning Kimai and Stripe and no connector-owned distributed lock.
-
-For a planned non-dry-run cleanup, `CleanupService` currently performs:
-
-1. successful Kimai lookup proving no invoice;
-2. initial current-instance managed Payment Link discovery and exact-one-link proof;
-3. Stripe payment-evidence discovery for that link;
-4. pure cleanup planning;
-5. a second Kimai lookup immediately before mutation;
-6. fresh current-instance managed Payment Link rediscovery and regrouping for the invoice;
-7. fresh Stripe child-evidence discovery from the refreshed link set;
-8. a second pure cleanup plan, including exact-one-link proof; and
-9. `StripeCleanupGateway` retrieval/revalidation immediately before `active=false`.
-
-The second managed-link discovery is intentional.  If another connector-managed Payment Link appears after the first cleanup plan, automatic deactivation stops with `CONFLICT` instead of mutating based on stale cardinality evidence.
-
-This closes preventable TOCTOU windows without adding a connector database or distributed locking service.  A very small distributed race remains between the final Stripe read and Stripe's update.  The project does not claim impossible cross-system atomicity.
-
-## Cleanup Command
-
-Phase 5 adds:
-
-```text
-php bin/console kimai:stripe:cleanup
-php bin/console kimai:stripe:cleanup --dry-run
-```
-
-The command accepts no invoice number, Payment Link ID, or desired state.  Callers cannot use it as a generic Stripe mutation endpoint.
-
-Cleanup is available only when both of these existing switches are enabled:
-
-```text
-KIMAI_STRIPE_CONNECTOR_ENABLED=true
-KIMAI_STRIPE_CONNECTOR_RECONCILIATION_ENABLED=true
-```
-
-There is intentionally no `KIMAI_STRIPE_CONNECTOR_CLEANUP_ENABLED` variable in the current two-capability architecture.
-
-The grace period remains:
-
-```text
-KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS
-```
-
-with default 7, minimum 1, and maximum 3650 days.  The exact boundary is inclusive: an otherwise eligible link whose age equals the grace period is old enough for cleanup.
-
-The cleanup command uses the ADR-013 process codes already established by reconciliation:
+Reconciliation and cleanup share ADR-013 process semantics:
 
 ```text
 SUCCESS / NO_CHANGE       0
@@ -245,55 +210,101 @@ MANUAL_REVIEW_REQUIRED   40
 INTERNAL_ERROR           50
 ```
 
-For independent invoice groups, the batch continues when safe and returns the highest mapped code.
+For independent invoice groups, a batch may continue when safe and returns the
+highest mapped code.
 
-## Phase 5 Executable Coverage
+Phase 6 explicitly documents scheduler/operator handling for these categories.
+In particular, `MANUAL_REVIEW_REQUIRED` is an accounting/operator work item rather
+than a condition that should be retried indefinitely.
 
-Current Phase 5 tests include:
+## Phase 5 Final Validation
 
-- old vs in-grace vs exact-grace-boundary orphan age;
-- existing Kimai invoice retention;
-- missing/future Payment Link creation evidence;
-- missing/already-inactive Payment Link state;
-- multiple managed links for one invoice;
-- paid orphan retention;
-- open Checkout and processing PaymentIntent retention;
-- conclusively failed/expired unpaid attempts;
-- dry-run with no Stripe mutation;
-- actual cleanup with repeated Kimai/Stripe revalidation;
-- Kimai invoice appearing between planning and mutation;
-- a second competing managed Payment Link appearing between planning and mutation;
-- successful Stripe payment appearing between planning and mutation;
-- retryable Stripe deactivation failure;
-- locked Stripe SDK GET-then-POST request construction;
-- exact Payment Link metadata revalidation; and
-- cleanup command result/exit-code behavior.
+The final Phase 5 head before merge was:
 
-The disposable Kimai E2E now invokes both `kimai:stripe:reconcile --dry-run` and `kimai:stripe:cleanup --dry-run` with the connector disabled.  This proves production-shape command registration/autowiring without requiring a Stripe credential or allowing a remote mutation.
+```text
+e1ef10b08f66e56297a6ec84a70721b9983c6c6b
+```
 
-## Current CI Note
+Its exact-head validation completed successfully:
 
-Early draft CI supplied useful implementation feedback before the branch stabilized.  It exposed and helped correct a locked-SDK wire-format assertion, two PHPCS line-length warnings, and a missing managed-link rediscovery race check.
+- PHP 8.2, 8.3, 8.4, and 8.5: success;
+- PHPUnit: 206 tests / 481 assertions;
+- PHPStan: no errors;
+- PHPCS: clean;
+- PHP-CS-Fixer: zero fixable files;
+- Documentation: success;
+- disposable Kimai E2E: success; and
+- MegaLinter: success with Grype enabled and every active linter at zero errors
+  and zero warnings.
 
-Immediately before the final security-gate restoration, exact head `373ef40cec1497759580baf4042a89acf8b23273` passed PHP 8.2 through 8.5, Documentation, disposable Kimai E2E, and MegaLinter with zero errors and zero warnings among enabled linters.  Grype had intentionally remained disabled during the rapid-development loop.
+The final MegaLinter run included Grype, Checkov, Trivy, Trivy-SBOM, Syft,
+TruffleHog, secretlint, PHPStan, PHPCS, markdownlint, cspell, action/workflow
+linters, and the remaining configured active linters.
 
-Grype has now been re-enabled.  Before recommending PR #10 for owner review, require one complete exact-current-head pass of PHP 8.2 through 8.5, Documentation, disposable Kimai E2E, and MegaLinter with Grype active and every active linter at exactly zero errors and zero warnings.
+## Phase 6 Operator Runbook
+
+`doc/operator-runbook.md` is the current Phase 6 artifact.
+
+It covers:
+
+- routine reconciliation and cleanup command use;
+- ADR-013 scheduler handling;
+- Stripe paid / Kimai unpaid;
+- Kimai failure after Payment Link creation;
+- conflicting or multiple Payment Links;
+- Stripe restricted-key permission failure;
+- restricted-key rotation;
+- paid Stripe orphans;
+- cleanup uncertainty;
+- reconciliation outages;
+- Kimai compatibility failures after upgrade;
+- disabling connector behavior;
+- removing the plugin;
+- return to manual billing;
+- post-incident recovery; and
+- safe evidence preservation.
+
+The runbook deliberately treats manual fallback as a supported operating mode, not
+an emergency-only exception.
+
+## Manual Billing Fallback
+
+The connector is optional.  Billing can continue as:
+
+```text
+track time in Kimai
+-> generate invoice
+-> create Stripe Payment Link manually
+-> include URL in customer-facing invoice workflow
+-> send invoice
+-> verify payment directly in Stripe
+-> mark exact Kimai invoice paid manually
+```
+
+Do not infer payment merely from link/session existence.  Preserve actual Stripe
+payment evidence and resolve refunds/disputes as accounting events.
 
 ## Production-Shaped Packaging Rule
 
-The disposable Kimai E2E stages a production-shaped plugin from the committed lockfile using:
+The disposable Kimai E2E stages a production-shaped plugin from the committed
+lockfile using:
 
 ```text
 composer install --no-dev
 ```
 
-Do not copy the repository-root development `vendor/` tree into Kimai.  Production packages carry only plugin production dependencies under ADR-012.  Test-only `App\...` Kimai mirrors under `tests/stubs/` are development autoload only and must never appear in the production-shaped artifact.
+Do not copy the repository-root development `vendor/` tree into Kimai.  Production
+packages carry only plugin production dependencies under ADR-012.  Test-only
+`App\...` Kimai mirrors under `tests/stubs/` are development autoload only and must
+never appear in the production-shaped artifact.
 
-A separate follow-up remains: verify that release automation actually produces the self-contained production dependency shape required by ADR-012.  Do not silently release or rewrite release semantics as part of Phase 5 without owner review.
+A separate Phase 7 follow-up remains: verify that release automation actually
+produces the self-contained production dependency shape required by ADR-012.  Do
+not silently release or rewrite release semantics during Phase 6.
 
 ## Real Stripe E2E Gap
 
-The canonical full payment proof remains future work:
+The canonical full payment proof remains future Phase 7 evidence:
 
 ```text
 real disposable Kimai invoice
@@ -307,17 +318,38 @@ real disposable Kimai invoice
 
 Do not use live credentials or real money to close this gap.
 
+## Phase 7 Preview
+
+After Phase 6 is accepted, the implementation playbook moves to compatibility and
+release evidence.  Important known work includes:
+
+- full hosted sandbox payment -> reconciliation evidence;
+- verifying release automation emits an ADR-012 self-contained production
+  artifact rather than only a source release;
+- supported compatibility evidence beyond the current Kimai 2.65.0 baseline if
+  desired;
+- install/disable/remove evidence;
+- secret/log review;
+- full clean quality/security gates; and
+- resolving the public software-license boundary before any public release.
+
+Do not publish a release without explicit owner authorization.
+
 ## Resume Checklist
 
 A new engineering session should:
 
-1. inspect draft PR #10, current head, CI, comments, and review threads;
-2. read this handoff, implementation playbook, decision index, ADR-009, ADR-010, ADR-011, ADR-013, and test matrix;
-3. treat merged Phase 4 commit `f8420fdcebcd4a3e9c69dd0f2bbafa457b71a927` as the Phase 5 baseline;
-4. preserve the verified Stripe permission set;
-5. preserve the shared exact money policy and Phase 4 reconciliation behavior;
-6. keep cleanup stricter than ordinary reconciliation `NO_CHANGE` and retain ambiguous states;
-7. preserve repeated Kimai, managed-link, payment-evidence, and target revalidation plus the narrow `active=false` mutation seam;
-8. maintain production-shaped Kimai packaging and dev-only test stubs;
+1. inspect draft PR #11, its current head, CI, comments, and review threads;
+2. read this handoff, implementation playbook, operator runbook, decision index,
+   ADR-009, ADR-010, ADR-011, ADR-012, ADR-013, and test matrix;
+3. treat merge commit `fc62c2f3db0187b4b0be5b20f08da66ebf203378`
+   as the Phase 6 baseline;
+4. preserve the verified Stripe permission set and stable Kimai instance UUID;
+5. preserve shared exact money and version-1 metadata semantics;
+6. keep cleanup stricter than ordinary reconciliation `NO_CHANGE`;
+7. preserve repeated cleanup revalidation and the narrow `active=false` mutation
+   seam;
+8. keep operator guidance fail-closed and manual-fallback capable;
 9. treat full hosted paid E2E as unproven until actually executed; and
-10. never merge, release, make the repository public, use live Stripe credentials, or perform live financial mutation without explicit owner authorization.
+10. never merge, release, make the repository public, use live Stripe credentials,
+    or perform live financial mutation without explicit owner authorization.

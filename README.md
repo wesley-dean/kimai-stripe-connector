@@ -18,7 +18,7 @@ Kimai does not need public Internet ingress and Stripe webhooks are not required
 
 ## Project Status
 
-Phases 1 through 4 are merged.  Phase 5 conservative orphan cleanup is under active development in draft PR #10.
+Phases 1 through 5 are merged.  Phase 6 operator documentation is under active development in draft PR #11.
 
 The repository now contains:
 
@@ -34,12 +34,13 @@ The repository now contains:
 - fail-closed reconciliation planning and batch orchestration;
 - a Kimai paid-state persistence adapter with last-moment consistency checks;
 - the external `kimai:stripe:reconcile` command with `--dry-run` and stable exit codes;
-- Phase 5 conservative orphan-cleanup planning and a narrowly scoped Payment Link deactivation boundary on the draft branch;
-- the draft `kimai:stripe:cleanup` command with `--dry-run` and the same operator-result taxonomy;
-- a manual real-Stripe sandbox contract probe; and
+- conservative orphan-cleanup planning and a narrowly scoped Payment Link deactivation boundary;
+- the `kimai:stripe:cleanup` command with `--dry-run` and the same operator-result taxonomy;
+- a manual real-Stripe sandbox contract probe;
+- an operator runbook covering routine operation, incidents, disablement, and manual fallback; and
 - detailed design/testing/threat/configuration/handoff documentation.
 
-PR #10 remains draft until its Phase 5 implementation, documentation, and exact-head validation are complete.  Do not treat draft branch behavior as a released compatibility promise.
+Phase 6 adds operator guidance for the already merged behavior.  It does not broaden the connector's financial or Stripe mutation authority.
 
 ## Start Here
 
@@ -59,14 +60,15 @@ High-value entry points:
 2. [`Implementation Playbook`](doc/implementation-playbook.md)
 3. [`Decision Index`](doc/decisions.md)
 4. [`Project Handoff`](doc/project-handoff.md)
-5. [`Configuration Model`](doc/configuration.md)
-6. [`Threat Model`](doc/threat-model.md)
-7. [`Documentation Standard`](doc/documentation.md)
-8. [`Test Architecture and Coverage Matrix`](doc/testing/test-matrix.md)
-9. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
-10. [`Pre-Implementation Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
-11. [`Stripe Sandbox E2E Strategy`](doc/testing/e2e-stripe-sandbox.md)
-12. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
+5. [`Operator Runbook`](doc/operator-runbook.md)
+6. [`Configuration Model`](doc/configuration.md)
+7. [`Threat Model`](doc/threat-model.md)
+8. [`Documentation Standard`](doc/documentation.md)
+9. [`Test Architecture and Coverage Matrix`](doc/testing/test-matrix.md)
+10. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
+11. [`Pre-Implementation Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+12. [`Stripe Sandbox E2E Strategy`](doc/testing/e2e-stripe-sandbox.md)
+13. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
 
 ## Architecture Decisions
 
@@ -168,7 +170,7 @@ When an automatic transition succeeds, Kimai's payment date is derived from the 
 
 ## Cleanup Command
 
-Phase 5 adds an operator-invoked maintenance command:
+Phase 5 provides an operator-invoked maintenance command:
 
 ```text
 php bin/console kimai:stripe:cleanup
@@ -179,7 +181,7 @@ Cleanup is intentionally outside the billing correctness path.  It can only deac
 
 The initial conclusively-unpaid policy is deliberately narrow: no Checkout Sessions, or expired/unpaid attempts with no Charge and no received money.  Open, processing, unknown, contradictory, paid, refunded, disputed, or otherwise ambiguous evidence retains the Payment Link.
 
-Before an actual deactivation, cleanup repeats the Kimai invoice lookup and Stripe child-evidence discovery.  The Stripe writer then retrieves the Payment Link again and validates exact ID, metadata, creation time, and active state before setting `active=false`.
+Before an actual deactivation, cleanup repeats the Kimai invoice lookup, managed Payment Link discovery, and Stripe child-evidence discovery.  The Stripe writer then retrieves the Payment Link again and validates exact ID, metadata, creation time, and active state before setting `active=false`.
 
 The command accepts no invoice number, Payment Link ID, or desired Stripe state.  It uses the same ADR-013 process exit-code mapping as reconciliation.
 
@@ -190,6 +192,8 @@ KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS
 ```
 
 with a default of 7 days.
+
+Operational procedures and incident response are documented in [`doc/operator-runbook.md`](doc/operator-runbook.md).
 
 ## Plugin Packaging
 
@@ -333,6 +337,8 @@ track time in Kimai
 -> verify payment in Stripe
 -> mark invoice paid manually
 ```
+
+See [`doc/operator-runbook.md`](doc/operator-runbook.md) for disablement, incident response, and return-to-manual procedures.
 
 ## License
 

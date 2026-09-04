@@ -8,19 +8,28 @@ Before substantive project work, read these documents in order:
 
 1. `doc/decisions.md`
 2. `doc/project-handoff.md`
-3. `doc/evaluated-tools.md`
-4. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
-5. `doc/adr/ADR-001-single-plugin-architecture.md`
-6. `doc/testing/preimplementation-mock-exercise.md`
-7. `doc/testing/e2e-stripe-sandbox.md`
-8. `README.md`
-9. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
+3. `doc/configuration.md`
+4. `doc/threat-model.md`
+5. `doc/evaluated-tools.md`
+6. `doc/reference-hosting-environment.md`
+7. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
+8. `doc/adr/ADR-001-single-plugin-architecture.md`
+9. `doc/testing/preimplementation-mock-exercise.md`
+10. `doc/testing/e2e-stripe-sandbox.md`
+11. `README.md`
+12. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
 
 Use `doc/decisions.md` as the fast index of accepted and proposed ADR decisions.  It is intentionally concise and should help determine which ADRs are relevant to the task at hand.  It is not authoritative over the ADRs themselves: when implementing, reviewing, or interpreting a decision, read the referenced ADR in full.  If `doc/decisions.md` conflicts with an ADR, the ADR controls.
 
 When an ADR is added, accepted, superseded, deprecated, or materially revised, update `doc/decisions.md` in the same change so the index remains trustworthy.
 
+Use `doc/configuration.md` as the current configuration contract.  Environment variables are primary, file-backed secret injection is preferred for sensitive containerized production values, and `.env` files are tertiary development/test convenience only.  Do not introduce a parallel configuration model or generic non-namespaced Stripe variables without documenting the change.
+
+Use `doc/threat-model.md` before implementing security-sensitive behavior, especially Stripe credential handling, Payment Link creation/recovery, reconciliation, cleanup, CLI commands, logging, test-only endpoint overrides, or release packaging.  Treat it as a living model: update it when implementation adds or materially changes a trust boundary, privilege, external interface, persistence mechanism, supported payment lifecycle, or distribution path.
+
 Use `doc/evaluated-tools.md` before reopening the original Harvest-replacement product comparison.  It records why Kimai was selected over alternatives such as Invoice Ninja, Miru, Dolibarr, SolidInvoice, and ERPNext.  Treat those conclusions as historical, not eternal: reconsider an alternative only when requirements or the product have materially changed, and verify current upstream facts before relying on the old comparison.
+
+Use `doc/reference-hosting-environment.md` for sanitized operational context.  It describes the dogfooding environment without hostnames, IP addresses, domain names, or credentials.  Do not encode Swarm, Traefik, NFS, Jenkins, or other local infrastructure choices as product requirements unless Kimai itself requires them.
 
 Do not infer missing project requirements from the original repository template.
 
@@ -109,6 +118,10 @@ The project owner explicitly prefers preserving context now and distilling later
 
 When making or materially changing an architectural decision, update or add an ADR rather than allowing the decision to live only in code or a PR conversation.  Then update `doc/decisions.md` with the current status, concise decision summary, and source reference.
 
+When changing configuration semantics, update `doc/configuration.md` and associated configuration tests.
+
+When introducing or changing a security boundary, credential scope, external interface, destructive operation, persistence mechanism, or release path, update `doc/threat-model.md` and the associated abuse/security test backlog.
+
 Distinguish facts, design decisions, inferences, synthetic evidence, and unresolved questions.
 
 ## Testing Philosophy
@@ -131,7 +144,9 @@ High-risk behavior should be represented by executable tests before release, esp
 - conservative cleanup;
 - Kimai persistence failure;
 - plugin disable/manual fallback;
-- real Stripe test-mode payment behavior.
+- real Stripe test-mode payment behavior;
+- configuration contradiction/secret-source tests;
+- threat-model abuse cases.
 
 Prefer adversarial and failure-path tests over happy-path-only coverage.
 
@@ -145,6 +160,9 @@ The plugin will handle a Stripe credential and can change Kimai invoice paid sta
 - Pay attention to container/entrypoint logging.  The reference Kimai deployment exposed environment values through shell tracing (`set -x`), so an environment variable is not automatically log-safe.
 - Keep public ingress unnecessary.
 - Fail closed on financial ambiguity.
+- Treat cleanup as destructive and therefore conservative.
+- Treat configuration integrity as security-sensitive.
+- Preserve the manual fallback during incidents and compatibility failures.
 
 ## Repository Conventions
 
@@ -196,5 +214,9 @@ When ending a substantial design or implementation session, update `doc/project-
 - what should happen next.
 
 If the session changed an architectural decision or ADR status, update `doc/decisions.md` as well.
+
+If the session changed configuration behavior, update `doc/configuration.md`.
+
+If the session changed a trust boundary, privilege, destructive action, external interface, persistence layer, supported payment lifecycle, or distribution path, update `doc/threat-model.md`.
 
 The repository should be sufficient context for a new chat/session without relying on memory from an earlier conversation.

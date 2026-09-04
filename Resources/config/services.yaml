@@ -10,9 +10,18 @@ services:
   KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\KimaiInvoiceMetadataFactory: ~
   KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\StripePaymentLinkServiceFactory: ~
   KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\InvoicePaymentLinkSubscriber: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\KimaiReconciliationInvoiceStore: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\StripeReconciliationServiceFactory: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\ReconcileCommand: ~
 
   KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkInvoiceModelHydrator:
     autoconfigure: false
 
   KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkServiceFactory:
     alias: KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\StripePaymentLinkServiceFactory
+
+  KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\ReconciliationInvoiceStore:
+    alias: KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\KimaiReconciliationInvoiceStore
+
+  KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\ReconciliationServiceFactory:
+    alias: KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\StripeReconciliationServiceFactory

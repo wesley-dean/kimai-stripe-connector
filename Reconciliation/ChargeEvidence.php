@@ -17,7 +17,7 @@ use InvalidArgumentException;
 final readonly class ChargeEvidence
 {
     /**
-     * @throws InvalidArgumentException When identifiers, amount, or currency are malformed.
+     * @throws InvalidArgumentException When identifiers, amount, currency, or timestamp are malformed.
      */
     public function __construct(
         private string $id,
@@ -30,6 +30,7 @@ final readonly class ChargeEvidence
         private int $amountRefunded,
         private string $currency,
         private string $paymentIntentId,
+        private ?int $createdAt = null,
     ) {
         foreach ([$id, $currency, $paymentIntentId] as $value) {
             if (trim($value) === '') {
@@ -39,6 +40,10 @@ final readonly class ChargeEvidence
 
         if ($amount < 0 || $amountCaptured < 0 || $amountRefunded < 0) {
             throw new InvalidArgumentException('Charge amounts must not be negative.');
+        }
+
+        if ($createdAt !== null && $createdAt <= 0) {
+            throw new InvalidArgumentException('Charge creation timestamp must be a positive Unix timestamp.');
         }
     }
 
@@ -90,5 +95,13 @@ final readonly class ChargeEvidence
     public function paymentIntentId(): string
     {
         return $this->paymentIntentId;
+    }
+
+    /**
+     * @brief Return Stripe's immutable Charge creation timestamp when supplied by the gateway.
+     */
+    public function createdAt(): ?int
+    {
+        return $this->createdAt;
     }
 }

@@ -46,7 +46,7 @@ readonly SECOND_ARCHIVE="${SECOND_OUTPUT}/${ARCHIVE_NAME}"
 
 cmp "${FIRST_ARCHIVE}" "${SECOND_ARCHIVE}"
 
-(
+( 
   cd -- "${FIRST_OUTPUT}"
   sha256sum --check "${ARCHIVE_NAME}.sha256"
 )
@@ -96,6 +96,8 @@ done
 
 composer validate --strict --working-dir="${PLUGIN_ROOT}"
 
+# The single-quoted program is PHP; $argv must not be expanded by the shell.
+# shellcheck disable=SC2016
 php -r \
   'require $argv[1]; exit(class_exists("Stripe\\StripeClient") ? 0 : 1);' \
   "${PLUGIN_ROOT}/vendor/autoload.php"

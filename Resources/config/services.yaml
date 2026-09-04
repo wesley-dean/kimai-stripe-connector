@@ -4,3 +4,15 @@ services:
     autowire: true
     autoconfigure: true
     public: false
+
+  KimaiPlugin\KimaiStripeConnectorBundle\Common\Configuration\EnvironmentConfigurationLoader: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\Common\Stripe\StripeClientFactory: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\KimaiInvoiceMetadataFactory: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\StripePaymentLinkServiceFactory: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\InvoicePaymentLinkSubscriber: ~
+
+  KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkInvoiceModelHydrator:
+    autoconfigure: false
+
+  KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkServiceFactory:
+    alias: KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\StripePaymentLinkServiceFactory

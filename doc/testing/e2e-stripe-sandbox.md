@@ -4,373 +4,223 @@ Date: 2026-09-04
 
 ## Status and Purpose
 
-This document defines the real-system E2E strategy for the Kimai Stripe Connector.
+This document defines the real-system E2E strategy for the Kimai Stripe Connector and records the subset that is currently executable.
 
-The repository already contains an executable disposable Kimai 2.65.0 + MySQL plugin-lifecycle harness under `tests/e2e/`.  Real Stripe sandbox payment flows have not yet been implemented because production Stripe behavior is not present in the plugin and ordinary CI does not yet require a Stripe sandbox credential.
+The repository contains two real-system layers:
 
-The E2E goal is:
+1. a disposable Kimai 2.65.0 + MySQL plugin-lifecycle harness under `tests/e2e/`; and
+2. a manual real-Stripe sandbox contract probe that exercises the locked Stripe PHP SDK with a restricted test credential.
 
-> Run the real connector inside a fresh real Kimai container, communicate outbound with the real Stripe API in a sandbox/test environment, complete a Stripe-hosted card Checkout, run the real connector reconciliation behavior, verify the exact Kimai invoice state, preserve useful failure evidence, and destroy the Kimai/database test environment before the run ends.
+The Phase 3 real-Stripe contract probe is operational.  The full hosted-card-payment and Kimai reconciliation flow remains pending Phase 4 because automatic reconciliation does not exist yet.
 
-The progression is:
+The eventual canonical E2E goal remains:
 
-```text
-historical synthetic architecture cases
-        |
-        v
-repository unit tests
-        |
-        v
-real Kimai + controlled/fake Stripe integration tests
-        |
-        v
-real Kimai + real Stripe sandbox E2E
-        |
-        v
-compatibility/release evidence
-```
-
-The real Stripe layer remains deliberately small.  It proves contracts that mocks cannot prove; it is not the project's fault-injection or load-testing layer.
+> Run the real connector inside a fresh real Kimai container, communicate outbound with the real Stripe API in sandbox/test mode, complete Stripe-hosted card Checkout, run real connector reconciliation, verify the exact Kimai invoice state, preserve useful failure evidence, and destroy the test-owned Kimai/database environment before the run ends.
 
 ## Governing Decisions
 
-The E2E design follows:
+The E2E design follows ADR-003 through ADR-013, especially:
 
-- ADR-003: behavior changes require appropriate tests;
-- ADR-004: Kimai 2.65.0, PHP 8.2–8.5, Stripe PHP `^21.3.1`, card-only initial payment scope, ordinary two-decimal currencies, version-1 metadata, and one restricted Stripe credential;
-- ADR-005: no Stripe-to-Kimai public ingress/webhook dependency;
-- ADR-006: supported Kimai plugin/extension seams;
-- ADR-007: Payment Links/Stripe-hosted Checkout as the customer payment surface;
+- ADR-003: executable behavior changes require appropriate tests;
+- ADR-004: Kimai/PHP/Stripe/payment/money/credential contract;
+- ADR-005: no Stripe-to-Kimai public webhook dependency;
+- ADR-006: supported Kimai plugin seams;
+- ADR-007: Payment Links as customer payment surface;
 - ADR-008: exact versioned metadata correlation;
 - ADR-009: strong-evidence-only reconciliation;
 - ADR-010: conservative cleanup;
-- ADR-011: idempotent partial-failure recovery; and
-- ADR-012: self-contained plugin packaging.
+- ADR-011: idempotent partial-failure recovery;
+- ADR-012: self-contained plugin packaging; and
+- ADR-013: operator result taxonomy.
 
 ## Current Executable Kimai Harness
 
-The executable harness is:
+The disposable Kimai harness is:
 
 ```text
 tests/e2e/compose.yaml
 tests/e2e/run.sh
 ```
 
-It intentionally follows Kimai's documented Docker Compose model closely:
+It uses:
 
-- official `kimai/kimai2:2.65.0` image;
-- MySQL 8.3 fixture database;
-- ordinary Kimai environment variables;
-- Kimai data/plugin named volumes; and
-- host access bound only to loopback on an ephemeral host port.
+- official `kimai/kimai2:2.65.0`;
+- MySQL 8.3;
+- ordinary Kimai environment configuration;
+- run-owned named volumes;
+- loopback-only host exposure; and
+- production-shaped plugin staging with production dependencies only.
 
-The current lifecycle flow is:
+Current lifecycle flow:
 
 ```text
-fresh unique Compose project
+fresh Compose project
 -> fresh MySQL/Kimai/plugin volumes
--> start Kimai 2.65.0 + MySQL
--> copy checked-out self-contained plugin into var/plugins
--> run kimai:reload
+-> start Kimai + MySQL
+-> install production-shaped checked-out plugin
+-> kimai:reload
 -> verify plugin bundle resolves
 -> verify Kimai CLI remains healthy
 -> remove plugin
--> run kimai:reload
+-> kimai:reload
 -> verify plugin no longer resolves
--> destroy containers/network/all named volumes
+-> destroy containers/network/volumes
 ```
 
-The harness already proves an architectural property before financial code exists: the connector is a normal removable Kimai plugin and does not require Kimai core modification.
+The harness proves that the connector remains an ordinary removable Kimai plugin and does not require Kimai core modification.
 
-## Ephemeral by Construction
+## Current Real Stripe Contract Probe
 
-E2E Kimai/database state SHALL be created by the test and destroyed by the test.
+The durable workflow is:
 
-`tests/e2e/run.sh` creates a run-specific Docker Compose project name and installs the checked-out plugin into that project's test-owned plugin volume.
+```text
+.github/workflows/stripe-sandbox.yml
+```
 
-An EXIT/INT/TERM trap executes:
+The probe is:
+
+```text
+tests/e2e/stripe-sandbox-smoke.php
+```
+
+The workflow is manual-only through `workflow_dispatch` and references GitHub Actions environment:
+
+```text
+stripe-sandbox
+```
+
+with environment secret:
+
+```text
+STRIPE_SANDBOX_RESTRICTED_KEY
+```
+
+The secret is mapped only for the probe step to:
+
+```text
+KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY
+```
+
+Checkout, PHP setup, and dependency installation do not receive the Stripe secret.
+
+## Verified Restricted-Key Permissions
+
+The verified sandbox permission set is:
+
+| Stripe resource     | Permission |
+|---------------------|------------|
+| Payment Links       | Write      |
+| Checkout Sessions   | Read       |
+| Payment Intents     | Read       |
+| Charges             | Read       |
+| Products            | None       |
+| Prices              | None       |
+| All other resources | None       |
+
+See [`../stripe-restricted-key.md`](../stripe-restricted-key.md) for operator-facing details.
+
+The sandbox probe demonstrated that inline one-time `price_data` / `product_data` creation succeeds through Payment Links `Write` without separate Products or Prices permissions.
+
+## Real Stripe Evidence Already Proven
+
+The Phase 3 sandbox probe verifies:
+
+- the restricted test credential works with the exact locked Stripe PHP SDK;
+- real Payment Link creation;
+- exact `$12.34` USD representation as `1234` minor units;
+- exactly one line item and quantity one;
+- card-only payment-method restriction;
+- one-completed-session limit;
+- exact version-1 metadata after Stripe round-trip;
+- Payment Link retrieve/list access;
+- Checkout Session read access;
+- PaymentIntent read access;
+- Charge read access; and
+- successful Payment Link deactivation during cleanup.
+
+The initial run created and deactivated the link successfully but exposed an order-sensitive local metadata assertion.  The assertion was corrected to compare canonical metadata key/value pairs.  Subsequent probes passed.
+
+The probe refuses live-mode credentials and redacts the known key from exception text before diagnostics are written.
+
+## What Is Not Yet Proven
+
+The Phase 3 probe does **not** prove:
+
+- a real Kimai-generated invoice invoking the Payment Link subscriber inside the disposable Kimai container;
+- browser traversal of the Stripe-hosted Payment Link;
+- successful test-card Checkout;
+- metadata on an actually created Checkout Session;
+- metadata on an actually paid PaymentIntent;
+- Charge relationship for the paid flow;
+- Kimai paid-state reconciliation;
+- reconciliation idempotence;
+- declined-card behavior; or
+- refund/dispute audit behavior.
+
+Those depend on Phase 4 reconciliation or later cleanup/audit implementation.
+
+## Ephemeral Kimai State
+
+Kimai/database E2E state must remain test-owned and ephemeral.
+
+`tests/e2e/run.sh` uses a run-specific Compose project and an EXIT/INT/TERM trap that performs:
 
 ```text
 docker compose down --volumes --remove-orphans
 ```
 
-Cleanup destroys:
-
-- Kimai container;
-- MySQL container;
-- Compose network;
-- MySQL data volume;
-- Kimai data volume; and
-- installed-plugin volume.
-
-No Kimai database/application state is intentionally reused between normal E2E runs.
-
-The long-lived dogfooding/reference Kimai instance SHALL NOT be used as the E2E fixture.
-
-A future upgrade/migration test may deliberately preserve state inside one test scenario, but that persistence must remain owned by that test run and still be destroyed at final teardown.
+Normal E2E runs must not reuse the long-lived dogfooding/reference Kimai instance.
 
 ## Stripe-Side Isolation
 
-Stripe is external to Docker, so `docker compose down --volumes` cannot clean Stripe objects.
+Stripe objects cannot be destroyed by Docker teardown.
 
-Every Stripe sandbox E2E run SHOULD use a unique run identifier attached through test-only names/labels or safely additive test metadata without changing the production correlation contract.
+Every real Stripe run should use a unique run identity in the test invoice number and/or safely additive test metadata while preserving the production six-field correlation contract.
 
-Stripe-side test objects should be:
+Connector-created test Payment Links should be deactivated after successful evidence collection.  If a future paid or uncertain test object is needed for failure forensics, retain it until the evidence is no longer needed rather than deleting accounting-significant state merely to make teardown look clean.
 
-- attributable to one E2E run;
-- distinguishable from manual sandbox work;
-- deactivated/cleaned when safe; and
-- retained temporarily when a failed test needs forensic evidence.
-
-Paid or otherwise accounting-significant test objects should never be deleted merely to make teardown look clean if doing so would destroy the evidence needed to diagnose a failure.
+Parallel tests must never perform global cleanup that could deactivate another run's objects.
 
 ## Network Property
 
-The E2E environment SHALL preserve the accepted no-public-ingress architecture.
+The accepted topology remains outbound-only:
 
 ```text
-+----------------------------+
-| ephemeral Kimai + plugin   |
-+-------------+--------------+
-              |
-              | outbound HTTPS
-              v
-        +-----------+
-        | Stripe API|
-        +-----------+
-
-+----------------------------+
-| E2E browser/test runner    |
-+-------------+--------------+
-              |
-              | outbound HTTPS
-              v
-       Stripe-hosted Checkout
-
-Stripe --------X--------> Kimai
-          no webhook
-          no callback
-          no public route
+Kimai + connector ----outbound HTTPS----> Stripe API
+browser/test runner --outbound HTTPS----> Stripe-hosted Checkout
+Stripe ----------------X----------------> Kimai
+                      no webhook
 ```
 
-Kimai may be reachable from the local/CI runner for testing.  It does not become an Internet-facing endpoint merely so Stripe can operate.
+Kimai may be reachable from the local/CI runner for testing.  It must not become Internet-facing merely for Stripe integration.
 
-Passing the real Stripe E2E suite under this topology is executable evidence for ADR-005.
+## Production-Shaped Plugin Rule
 
-## Versions and Compatibility Evidence
+Development E2E must install the plugin as users receive it, including the plugin-local production dependency graph from the committed lockfile.
 
-Initial E2E compatibility baseline:
+Do not copy the repository-root development `vendor/` tree into Kimai.  The harness stages a production-shaped plugin using:
 
 ```text
-Kimai:          2.65.0
-Stripe PHP:     exact version selected by composer.lock within ^21.3.1
-Payment method: card
+composer install --no-dev
 ```
 
-The Kimai image is pinned to an exact version.  A result against 2.65.0 is evidence for 2.65.0, not a claim about every future Kimai version.
+This rule preserves ADR-012 and avoids development Symfony/PSR packages shadowing Kimai's own runtime dependencies.
 
-Later compatibility expansion should add an explicit matrix, for example:
+## Secret Handling
 
-```text
-minimum supported Kimai
-current primary supported Kimai
-new candidate Kimai under evaluation
-```
+The sandbox key remains a secret even though it cannot move live money.
 
-A moving `stable` image tag is useful for exploratory candidate checks but should not replace exact-version evidence for a release claim.
+The CI/test design must:
 
-## Plugin Under Test
-
-### Development E2E
-
-Development E2E installs the current repository contents into:
-
-```text
-/opt/kimai/var/plugins/KimaiStripeConnectorBundle
-```
-
-The plugin is self-contained under ADR-012 and expects its production Composer dependencies under its plugin-local `vendor/` tree.
-
-The harness therefore requires `composer install` before execution.
-
-### Release-artifact E2E
-
-Release validation must test the artifact users actually receive, not only a source checkout.
-
-The future release-artifact test should:
-
-1. build the plugin from the committed lockfile;
-2. include production plugin-local dependencies;
-3. unpack/install it exactly as the installation documentation specifies;
-4. exercise the same plugin lifecycle; and
-5. then run representative Stripe behavior.
-
-A source-tree pass does not prove a malformed release archive is installable.
-
-## Secrets and Credential Handling
-
-Real Stripe E2E requires a sandbox restricted key.
-
-The sandbox key is still a secret even though it cannot move live money.
-
-The CI/test design SHALL:
-
-- store it in CI/runtime secret storage;
+- store it only in secret storage;
 - never commit it;
-- never store it in the fixture Compose file;
+- never place it in fixture Compose files or `.env` examples;
 - avoid shell tracing of the value;
-- prevent untrusted fork PRs from receiving it;
-- prevent it from appearing in test artifacts/screenshots/traces;
-- use the accepted restricted-key permission model; and
-- verify that application/container logs do not expose the credential.
+- prevent untrusted fork/Dependabot code from receiving it;
+- keep it out of artifacts/screenshots/traces; and
+- use only the verified restricted-key permission set.
 
-The reference Kimai container has exhibited shell tracing capable of exposing environment values.  E2E should prove actual secret-safe behavior rather than assuming environment-variable injection is automatically safe.
-
-## Restricted-Key Permission Validation
-
-ADR-004 selects one least-privilege restricted key initially.
-
-A sandbox setup exercise should verify the exact Stripe dashboard permissions required for:
-
-- Payment Link create/retrieve/list/deactivate;
-- inline one-time product/price creation used by the Payment Link request;
-- Checkout Session retrieval/listing;
-- PaymentIntent retrieval; and
-- Charge retrieval.
-
-The verified dashboard labels should then be recorded in operator/deployment documentation.
-
-At least one test should demonstrate the operator-visible failure when the credential lacks a required permission.
-
-## Canonical Happy Path
-
-The foundational true E2E scenario should exercise the entire intended business flow.
-
-### Setup
-
-1. Start the disposable Kimai/MySQL environment.
-2. Install the real connector through the normal plugin path.
-3. Wait for Kimai readiness and reload the application.
-4. Inject a Stripe sandbox restricted key through the connector configuration contract.
-5. Configure a run-specific stable test Kimai instance UUID.
-6. Seed the minimum Kimai customer/project/activity/time data needed for a real invoice.
-
-### Invoice creation
-
-7. Generate a real Kimai invoice.
-8. Confirm invoice preview, if exercised beforehand, caused no Stripe mutation.
-9. Confirm exactly one connector-managed Payment Link exists for the invoice.
-10. Confirm link amount/currency match Kimai exactly.
-11. Confirm version-1 metadata matches the intended instance/invoice/amount/currency.
-12. Confirm the resulting invoice rendering contains that exact Stripe-hosted URL.
-
-### Customer payment
-
-13. Open the rendered Payment Link with a browser runner such as Playwright.
-14. Complete Stripe-hosted Checkout using Stripe's current documented successful card test data.
-15. Confirm Stripe produced the expected Session/PaymentIntent/Charge relationship and successful payment evidence.
-
-### Reconciliation
-
-16. Confirm Kimai remains unpaid before reconciliation if no reconciliation run has occurred.
-17. Run the real connector reconciliation command.
-18. Confirm the exact invoice becomes paid.
-19. Confirm no unrelated invoice changes.
-20. Confirm the operator result/exit behavior matches ADR-013.
-
-### Idempotence
-
-21. Run reconciliation again.
-22. Confirm the second run produces no duplicate accounting side effect.
-23. Confirm the result is an appropriate no-change/success-equivalent operator outcome.
-
-### Teardown
-
-24. Preserve failure diagnostics when needed.
-25. Safely deactivate/clean connector-managed Stripe sandbox links created by the run when evidence no longer needs preservation.
-26. Destroy Kimai/MySQL containers, network, and volumes through the harness trap.
-
-## Browser Automation
-
-A headless browser such as Playwright is appropriate for the small number of tests that need to prove the actual customer-facing hosted Checkout path.
-
-Browser tests should answer high-value questions:
-
-- does the rendered URL open a Stripe-hosted page;
-- is the intended amount/currency represented;
-- can a documented card test payment complete; and
-- does the resulting real Stripe object chain reconcile correctly.
-
-Avoid broad coupling to Stripe's HTML/CSS.  Stripe owns that presentation and may change it without changing the API contract.
-
-Most connector behavior belongs below the browser layer.
-
-## Initial True E2E Scenarios
-
-### E2E-001: Plugin lifecycle
-
-Already represented by the current disposable harness.
-
-Prove install/reload/remove/reload and healthy Kimai behavior.
-
-### E2E-002: Invoice preview produces no Stripe mutation
-
-Use Kimai's real preview path and prove no connector-managed Payment Link is created.
-
-### E2E-003: Successful invoice, card payment, and reconciliation
-
-Canonical full flow.
-
-### E2E-004: Exact amount/currency and metadata
-
-Use an amount chosen to expose common decimal conversion mistakes and verify exact Stripe object fields/metadata.
-
-### E2E-005: Declined card leaves Kimai unpaid
-
-Use Stripe's current documented declined-card test behavior and prove no automatic paid transition.
-
-### E2E-006: Reconciliation idempotence
-
-Pay, reconcile, reconcile again, and prove the second run changes no accounting state.
-
-### E2E-007: Correct invoice among multiple invoices
-
-Create multiple invoices, pay exactly one, and prove only the intended invoice is reconciled.
-
-### E2E-008: Plugin disabled/manual fallback
-
-Disable/remove connector and prove ordinary Kimai invoice generation remains usable.
-
-### E2E-009: Exact orphan recovery when practical
-
-If a realistic Kimai-side failure can be induced without patching core, create a link then fail invoice completion and prove an unchanged retry rediscovers the exact link.
-
-If deterministic failure induction would distort the real system, keep precise timeout/commit injection at the controlled Stripe layer and limit the true E2E case to a safely reproducible orphan/recovery observation.
-
-### E2E-010: Refund/dispute does not reverse historical paid state
-
-Pay/reconcile, create a sandbox refund or dispute-like supported test condition, rerun connector audit/reconciliation behavior, and prove Kimai is not automatically rewritten from paid to unpaid/canceled.
-
-### E2E-011: 3DS card behavior if claimed
-
-If the initial card-support statement includes authentication-required cards, add at least one Stripe-documented 3DS sandbox flow.
-
-## What Does Not Belong in Real Stripe E2E
-
-Use controlled/fake Stripe integration tests for deterministic fault injection and scale-sensitive scenarios, including:
-
-- timeout precisely after Stripe commits;
-- repeated injected 500 responses;
-- rate-limit injection;
-- malformed Stripe JSON/object shapes;
-- impossible state combinations;
-- large concurrency storms;
-- 10,000-object distractor scans;
-- large property/fuzz runs;
-- exhaustive currency conversion sweeps; and
-- deliberately corrupted Stripe fixtures.
-
-Do not use Stripe's sandbox as a load-testing target.
+No live Stripe key may be used without explicit owner authorization.
 
 ## Test-Layer Relationship
 
@@ -393,85 +243,71 @@ Do not use Stripe's sandbox as a load-testing target.
                         many
 ```
 
-Use [`test-matrix.md`](test-matrix.md) for scenario-to-layer assignment.
+Use real Stripe only for contracts that Stripe itself must prove.  Keep timeout injection, malformed responses, races, and other adversarial conditions in deterministic lower layers.
 
-### Unit/property layer
+## Current and Future E2E Scenarios
 
-Best for configuration, money, metadata, exact-match rules, reconciliation state decisions, cleanup logic, result taxonomy, and large generated input sets.
+| Scenario                                           | Status                                                    | Purpose                                                    |
+|----------------------------------------------------|-----------------------------------------------------------|------------------------------------------------------------|
+| E2E-001 plugin lifecycle                           | Implemented                                               | Install/reload/remove/reload with healthy disposable Kimai |
+| E2E-002 preview causes no Stripe mutation          | Lower-layer implemented; full Kimai/Stripe proof pending  | Preserve preview safety                                    |
+| E2E-003 successful invoice/card/reconciliation     | Pending Phase 4                                           | Canonical business flow                                    |
+| E2E-004 exact amount/currency/metadata             | Payment Link contract subset implemented                  | Prove exact Stripe representation                          |
+| E2E-005 declined card leaves Kimai unpaid          | Pending Phase 4                                           | False-positive prevention                                  |
+| E2E-006 reconciliation idempotence                 | Pending Phase 4                                           | Safe rerun behavior                                        |
+| E2E-007 correct invoice among multiple invoices    | Pending Phase 4                                           | Exact target selection                                     |
+| E2E-008 plugin disabled/manual fallback            | Lower-layer/lifecycle evidence exists                     | Preserve manual operation                                  |
+| E2E-009 orphan recovery                            | Controlled layer implemented; real-system subset optional | Partial-failure recovery                                   |
+| E2E-010 refund/dispute does not reverse paid state | Pending reconciliation/audit implementation               | Historical-state conservatism                              |
+| E2E-011 3DS card behavior                          | Deferred unless claimed                                   | Authentication-required card support                       |
 
-### Real Kimai + controlled Stripe layer
+## Phase 4 Extension
 
-Best for real plugin/events/rendering/persistence plus deterministic network ambiguity, concurrency, malformed responses, and fault injection.
+After Phase 4 reconciliation exists, extend the real sandbox suite to the canonical flow:
 
-### Real Kimai + real Stripe sandbox
+```text
+fresh disposable Kimai invoice
+-> preview proves no Stripe mutation
+-> real invoice creates exactly one Payment Link
+-> browser opens Stripe-hosted Checkout
+-> documented Stripe test card completes payment
+-> verify Session / PaymentIntent / Charge evidence
+-> verify Kimai remains unpaid before reconciliation
+-> run reconciliation command
+-> verify exact invoice becomes paid
+-> rerun reconciliation
+-> verify no duplicate accounting side effect
+-> preserve/clean Stripe evidence safely
+-> destroy Kimai/MySQL environment
+```
 
-Best for actual Stripe request compatibility, Payment Link creation, metadata propagation, hosted Checkout, real Stripe object relationships, and release compatibility evidence.
+The existing restricted key already has the expected read permissions for Checkout Sessions, PaymentIntents, and Charges.  Do not add permissions merely because Phase 4 begins.
 
-## Parallelism
+## Completion Criteria for Full Real Stripe E2E
 
-Each Kimai E2E run already uses a unique Compose project and isolated volumes.
+The complete E2E layer is operational when the repository has:
 
-Stripe-side objects must also be distinguishable by run.  Parallel tests SHALL NOT depend on global cleanup that could deactivate another run's links.
-
-Avoid making invoice numbering or Stripe metadata globally collision-prone across concurrent CI runs.
-
-## Diagnostics
-
-A failed E2E run should preserve enough evidence to answer:
-
-- which Kimai version ran;
-- which connector commit/version ran;
-- which Stripe object IDs were involved;
-- which invoice identity was involved;
-- which phase failed;
-- what safe operator result occurred; and
-- whether Docker/Stripe cleanup completed.
-
-Do not preserve secrets, full payment payloads, or unnecessary customer/payment-method data merely for convenience.
-
-## CI Trigger Model
-
-Kimai lifecycle E2E can run on ordinary trusted PRs because it needs no external secret.
-
-Real Stripe sandbox E2E should run only where repository policy can protect the sandbox credential, such as:
-
-- trusted same-repository PRs;
-- protected manual workflow dispatch; or
-- release/candidate validation.
-
-Untrusted fork PRs SHALL NOT receive the Stripe sandbox secret.
-
-Lower-layer tests remain the default coverage for untrusted changes.
-
-## Completion Criteria for Real Stripe E2E Enablement
-
-Before calling the Stripe E2E layer operational, the repository should have:
-
-1. configuration/credential parsing with secret-safe logs;
+1. secret-safe configuration and logs;
 2. stable instance identity;
-3. integer money conversion for the accepted currency scope;
-4. version-1 metadata implementation;
+3. exact integer money conversion;
+4. version-1 metadata;
 5. Payment Link creation/recovery;
-6. reconciliation command;
-7. sandbox restricted-key permissions verified;
-8. a run-specific Stripe object namespace/cleanup mechanism;
-9. at least the canonical successful card flow; and
-10. CI secret/trigger rules that prevent credential disclosure to untrusted code.
+6. reconciliation command and strong-evidence decision logic;
+7. verified restricted-key permissions;
+8. run-specific Stripe object isolation;
+9. canonical successful hosted card flow;
+10. exact Kimai paid-state verification;
+11. idempotent reconciliation rerun; and
+12. CI trigger/secret rules that prevent credential disclosure to untrusted code.
 
-## Relationship to Historical Mock Evidence
-
-The historical 103 synthetic cases remain useful architecture/test-backlog evidence, but they are not repository CI results.
-
-The repository should recreate those behaviors at the cheapest deterministic executable layer, then use only a small subset for true Stripe E2E proof.
+Items 1 through 5 and 7 are substantially represented now.  Phase 4 supplies the main missing reconciliation and canonical paid-flow pieces.
 
 ## Related Documentation
 
-- [`test-matrix.md`](test-matrix.md) — current scenario/layer mapping
-- [`preimplementation-mock-exercise.md`](preimplementation-mock-exercise.md) — historical synthetic architecture exercise
-- [`../../tests/e2e/README.md`](../../tests/e2e/README.md) — executable disposable Kimai lifecycle harness
-- [`../configuration.md`](../configuration.md) — secret/configuration contract
-- [`../threat-model.md`](../threat-model.md) — E2E/security threats and controls
-- [`../adr/ADR-003-require-tests-for-behavioral-changes.md`](../adr/ADR-003-require-tests-for-behavioral-changes.md) — test requirement
-- [`../adr/ADR-004-freeze-initial-compatibility-and-stripe-contract.md`](../adr/ADR-004-freeze-initial-compatibility-and-stripe-contract.md) — compatibility/payment baseline
-- [`../adr/ADR-005-private-kimai-outbound-stripe-integration.md`](../adr/ADR-005-private-kimai-outbound-stripe-integration.md) — network boundary
-- [`../adr/ADR-009-reconcile-only-on-strong-stripe-payment-evidence.md`](../adr/ADR-009-reconcile-only-on-strong-stripe-payment-evidence.md) — reconciliation evidence
+- [`test-matrix.md`](test-matrix.md)
+- [`preimplementation-mock-exercise.md`](preimplementation-mock-exercise.md)
+- [`../../tests/e2e/README.md`](../../tests/e2e/README.md)
+- [`../stripe-restricted-key.md`](../stripe-restricted-key.md)
+- [`../configuration.md`](../configuration.md)
+- [`../threat-model.md`](../threat-model.md)
+- [`../implementation-playbook.md`](../implementation-playbook.md)

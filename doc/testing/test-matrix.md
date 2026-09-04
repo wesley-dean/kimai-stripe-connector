@@ -4,12 +4,9 @@ Date: 2026-09-04
 
 ## Purpose
 
-This document maps the connector's documented behavior and historical synthetic
-scenario IDs to the cheapest deterministic test layer capable of proving them.
+This document maps documented connector behavior and historical synthetic scenario IDs to the cheapest deterministic test layer capable of proving them.
 
-The goal is not to duplicate every behavior at every layer.  The goal is to make
-it difficult for an implementation session to accidentally leave important
-failure paths as prose-only assumptions.
+The goal is not to duplicate every behavior at every layer.  The goal is to make it difficult for an implementation session to leave important failure paths as prose-only assumptions.
 
 ADR-003 governs when behavior changes require tests.
 
@@ -19,72 +16,29 @@ ADR-003 governs when behavior changes require tests.
 
 Pure PHP with no real Kimai or Stripe runtime.
 
-Use for:
-
-- configuration parsing/validation;
-- money and currency normalization;
-- metadata construction/parsing;
-- identity matching;
-- reconciliation decision logic represented as pure state;
-- cleanup eligibility represented as pure state;
-- result/error taxonomy; and
-- redaction helpers.
+Use for configuration parsing, money/currency normalization, metadata, identity matching, Payment Link planning, reconciliation decisions, cleanup eligibility, operator-result taxonomy, and redaction.
 
 ### Kimai integration
 
-A real Kimai application/container with the plugin loaded, without necessarily
-calling real Stripe.
+A real or faithfully mirrored Kimai application boundary with the plugin loaded, without requiring real Stripe.
 
-Use for:
-
-- plugin registration and removal;
-- dependency-injection wiring;
-- event subscribers;
-- invoice preview detection;
-- InvoiceModel/options/hydrator behavior;
-- Twig invoice rendering integration;
-- Kimai invoice paid-state persistence; and
-- Kimai version compatibility.
+Use for plugin registration, dependency injection, event subscribers, preview detection, InvoiceModel/options/hydrator behavior, invoice rendering integration, paid-state persistence, and Kimai-version compatibility.
 
 ### Controlled Stripe/network integration
 
 A deterministic fake HTTP/Stripe boundary under project control.
 
-Use for conditions that cannot be reliably induced against the real Stripe
-sandbox:
-
-- timeout before commit;
-- timeout after remote commit;
-- malformed responses;
-- retry and idempotency behavior;
-- pagination edge cases;
-- rate limits;
-- network interruption;
-- races/concurrent creation attempts; and
-- hostile/unexpected object graphs.
+Use for timeout-before/after-commit, malformed responses, retry/idempotency behavior, pagination, rate limits, network interruption, races, and hostile/unexpected object graphs.
 
 ### Real Stripe sandbox E2E
 
-A deliberately small set of expensive high-value proofs using the official Stripe
-sandbox/test mode and a disposable real Kimai environment.
+A deliberately small set of high-value proofs against the official Stripe sandbox/test environment.
 
-Use for:
+Use for real Payment Link request compatibility, real Stripe object behavior, metadata round-trip, hosted Checkout, Session/PaymentIntent/Charge relationships, reconciliation, and safe sandbox cleanup.
 
-- real Payment Link creation;
-- actual metadata propagation among Stripe objects;
-- hosted card Checkout;
-- successful real sandbox PaymentIntent/Charge relationships;
-- exact reconciliation into Kimai;
-- idempotent reconciliation reruns; and
-- safe connector-managed sandbox cleanup.
-
-The Kimai portion of every E2E run is ephemeral and is constructed/destroyed by
-`tests/e2e/run.sh`.
+The real Stripe layer is evidence for contracts mocks cannot prove.  It is not the project's fault-injection or load-testing layer.
 
 ## Phase 2 Primitive Coverage
-
-The Phase 2 implementation adds executable unit coverage before any real Stripe
-mutation exists.
 
 | Area                  | Repository tests                                           | Current evidence                                                                 |
 |-----------------------|------------------------------------------------------------|----------------------------------------------------------------------------------|
@@ -96,105 +50,139 @@ mutation exists.
 | Operator results      | `OperatorResultTest`                                       | ADR-013 category identifiers and success/no-change semantics                     |
 | Stripe client factory | `StripeClientFactoryTest`                                  | Restricted credential reaches SDK client; SDK API version is not overridden      |
 
-The Phase 2 Stripe client test constructs an SDK client only.  It makes no remote
-request and therefore requires no real Stripe credential.
+## Phase 3 Payment Link Coverage
+
+| Area                     | Repository tests                     | Current evidence                                                                                                            |
+|--------------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| Planning                 | `PaymentLinkPlannerTest`             | Preview, reuse, create, financial conflict, ambiguity, malformed same-invoice metadata, inactive exact link                 |
+| Request construction     | `PaymentLinkCreateRequestTest`       | Card-only, one-completed-session limit, exact amount/currency, metadata propagation request, deterministic idempotency key  |
+| Orchestration            | `PaymentLinkServiceTest`             | Discovery, reuse, create, definite failure, uncertain commit rediscovery, no blind second create                            |
+| Stripe SDK adapter       | `StripePaymentLinkGatewayTest`       | Pagination, response validation, create failure classification                                                              |
+| Controlled HTTP boundary | `StripePaymentLinkHttpBoundaryTest`  | Real locked stripe-php request shape, idempotency header, timeout-after-remote-commit recovery                              |
+| Kimai money boundary     | `KimaiInvoiceMetadataFactoryTest`    | Kimai float serialization into exact money policy; binary-artifact precision fails closed                                   |
+| Kimai pre-render seam    | `InvoicePaymentLinkSubscriberTest`   | Preview before config/Stripe access, disabled no-op, safe URL hydration, automatic failure stops rendering                  |
+| Real Stripe sandbox      | `tests/e2e/stripe-sandbox-smoke.php` | Real create/read/list/update, exact line item, restrictions, metadata round-trip, configured read permissions, deactivation |
+
+## Historical Payment-Link Scenario Status
+
+The authoritative historical scenario descriptions remain in `preimplementation-mock-exercise.md`.
+
+| IDs         | Primary layer                            | Phase 3 status                                                                                               |
+|-------------|------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| PL-001..004 | Unit/Kimai integration                   | Implemented through planner/service/subscriber coverage                                                      |
+| PL-005..008 | Controlled Stripe                        | Implemented for API failure, idempotency, and uncertain-commit recovery represented by current Phase 3 scope |
+| PL-009..012 | Unit/controlled Stripe/Kimai integration | Implemented for financial conflict, ambiguity, recovery, and safe rendering boundary                         |
+
+Where a historical scenario extends into paid-state reconciliation, its Payment Link half is implemented while the accounting transition remains Phase 4 work.
+
+## Real Stripe Sandbox Contract Probe
+
+The manual workflow is:
+
+```text
+.github/workflows/stripe-sandbox.yml
+```
+
+The probe is:
+
+```text
+tests/e2e/stripe-sandbox-smoke.php
+```
+
+Current verified Stripe sandbox evidence includes:
+
+```text
+Payment Links       Write
+Checkout Sessions   Read
+Payment Intents     Read
+Charges             Read
+Products            None
+Prices              None
+all other resources None
+```
+
+The probe proved that inline one-time `price_data` / `product_data` works with Payment Links `Write` and does not require separate Products or Prices permissions.
+
+The probe also proves:
+
+- real Payment Link creation with the locked Stripe PHP SDK;
+- exact `$12.34` USD to `1234` minor units;
+- one line item and quantity one;
+- card-only payment method;
+- one-completed-session limit;
+- exact version-1 metadata after Stripe round-trip;
+- Payment Link retrieve/list access;
+- Checkout Session read access;
+- PaymentIntent read access;
+- Charge read access; and
+- successful sandbox link deactivation.
+
+The first real run exposed an order-sensitive local metadata assertion.  Stripe creation and cleanup succeeded.  The test was corrected to canonical metadata comparison and subsequent runs passed.
 
 ## Configuration Backlog
-
-The `CFG-*` scenarios from `doc/configuration.md` are primarily unit tests:
 
 | IDs          | Primary layer    | Status / notes                                                                                 |
 |--------------|------------------|------------------------------------------------------------------------------------------------|
 | CFG-001..010 | Unit             | Implemented in Phase 2 unit tests                                                              |
 | CFG-011..012 | Unit/integration | Pure redaction/safe-context coverage exists; real Kimai startup/log inspection remains pending |
-| CFG-013      | Unit/integration | Process-environment values are proven to use the same parser as an explicit environment map    |
+| CFG-013      | Unit/integration | Process-environment values use the same parser as explicit environment maps                    |
 
-A `.env` file remains only one possible mechanism for populating process
-environment values.  The connector deliberately does not implement a second dotenv
-parser or precedence model.
-
-## Historical Payment-Link Backlog
-
-The original pre-implementation exercise defines `PL-*` scenarios.
-
-| IDs         | Primary layer          | Representative concerns                              |
-|-------------|------------------------|------------------------------------------------------|
-| PL-001..004 | Unit/Kimai integration | Preview suppression, identity, create/reuse behavior |
-| PL-005..008 | Controlled Stripe      | API error, timeout, idempotency, uncertain commit    |
-| PL-009..012 | Unit/controlled Stripe | Financial conflict, ambiguous candidates, recovery   |
-
-Exact individual scenario descriptions remain authoritative in
-`preimplementation-mock-exercise.md`; this table assigns execution layers rather
-than replacing that record.
+A `.env` file remains only one possible mechanism for populating process environment.  The connector deliberately does not implement a second dotenv parser or precedence model.
 
 ## Money Backlog
 
-| IDs          | Primary layer | Status / notes                                                                                    |
-|--------------|---------------|---------------------------------------------------------------------------------------------------|
-| MNY-001..008 | Unit          | Implemented with exact text parsing, no float/rounding, fail-closed currencies, and Stripe bounds |
-
-Money conversion receives broad parameterized coverage because it is cheap and
-financially consequential.  The current implementation intentionally rejects zero
-and negative invoice amounts, zero-decimal currencies, Stripe special-case
-currencies, malformed precision, and amounts greater than Stripe's eight-digit
-minor-unit limit.  The upper boundary itself is covered as a valid case.
+| IDs          | Primary layer | Status / notes                                                                              |
+|--------------|---------------|---------------------------------------------------------------------------------------------|
+| MNY-001..008 | Unit          | Implemented with exact text parsing, no rounding, fail-closed currencies, and Stripe bounds |
 
 ## Reconciliation Backlog
 
-| IDs          | Primary layer                       | Representative concerns                                                     |
-|--------------|-------------------------------------|-----------------------------------------------------------------------------|
-| REC-001..012 | Unit/controlled Stripe              | Identity, amount, currency, checkout/payment state                          |
-| REC-013..018 | Controlled Stripe/Kimai integration | refund, dispute, capture, multiple candidates, persistence failure          |
-| REC-019..022 | Real E2E plus lower layers          | successful exact payment, paid mutation, idempotent rerun, anomaly behavior |
+Reconciliation remains Phase 4.
 
-The real Stripe E2E suite should contain only representative high-value cases.
-The full adversarial state matrix belongs in deterministic lower layers.
+| IDs          | Primary layer                       | Status / notes                                                                      |
+|--------------|-------------------------------------|-------------------------------------------------------------------------------------|
+| REC-001..012 | Unit/controlled Stripe              | Pending Phase 4 strong-evidence reconciliation logic                                |
+| REC-013..018 | Controlled Stripe/Kimai integration | Pending refund, dispute, capture, ambiguity, persistence-failure behavior           |
+| REC-019..022 | Real E2E plus lower layers          | Pending successful exact payment, paid mutation, idempotent rerun, anomaly behavior |
+
+The real Stripe key already has the Checkout Session, PaymentIntent, and Charge read permissions expected by Phase 4.  Do not broaden permissions preemptively.
 
 ## Cleanup Backlog
 
-| IDs          | Primary layer                            | Notes                                                                                             |
-|--------------|------------------------------------------|---------------------------------------------------------------------------------------------------|
-| CLN-001..009 | Unit/controlled Stripe/Kimai integration | Prove eligibility logic, uncertainty retention, paid-orphan retention, grace period, deactivation |
+| IDs          | Primary layer                            | Status / notes                                                                                               |
+|--------------|------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| CLN-001..009 | Unit/controlled Stripe/Kimai integration | General cleanup logic pending; sandbox probe already proves connector-created unpaid link deactivation works |
 
-At least one real Stripe sandbox test should prove that a connector-created unpaid
-sandbox Payment Link can be deactivated safely, but the full cleanup decision
-matrix does not need repeated external API calls.
+Paid or uncertain objects must remain conservative.  Sandbox cleanup evidence does not authorize deleting accounting-significant production objects.
 
 ## Network and Concurrency Backlog
 
-| IDs          | Primary layer                         |
-|--------------|---------------------------------------|
-| NET-001..008 | Controlled Stripe/network             |
-| CON-001..004 | Controlled Stripe/concurrency harness |
+| IDs          | Primary layer                         | Status / notes                                                                                                  |
+|--------------|---------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| NET-001..008 | Controlled Stripe/network             | Phase 3 covers key create/retry/uncertain-commit paths; remaining scenarios stay deterministic lower-layer work |
+| CON-001..004 | Controlled Stripe/concurrency harness | Pending                                                                                                         |
 
-These scenarios SHALL NOT be implemented solely as real Stripe E2E tests because
-network timing and failure induction would be nondeterministic and slow.
+These scenarios shall not be implemented solely as real Stripe E2E tests because timing/failure induction would be nondeterministic and inappropriate for Stripe's sandbox.
 
 ## Kimai Integration Backlog
 
-| IDs          | Primary layer                    |
-|--------------|----------------------------------|
-| KIM-001..012 | Disposable Kimai integration/E2E |
+| IDs          | Primary layer                    | Status / notes                                                                                    |
+|--------------|----------------------------------|---------------------------------------------------------------------------------------------------|
+| KIM-001..012 | Disposable Kimai integration/E2E | Plugin lifecycle exists; Phase 3 adds pre-render seam coverage; paid-state cases wait for Phase 4 |
 
-The existing lifecycle harness is the first implementation of this layer.  Future
-cases should reuse the same ephemeral environment rather than creating a second
-long-lived Kimai fixture.
+The disposable Kimai lifecycle harness remains the canonical ephemeral host fixture.
 
 ## Stripe Contract Backlog
 
-| IDs          | Primary layer                                               |
-|--------------|-------------------------------------------------------------|
-| STR-001..011 | Controlled Stripe plus a representative real sandbox subset |
+| IDs          | Primary layer                                        | Status / notes                                                                                                                |
+|--------------|------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| STR-001..011 | Controlled Stripe plus representative sandbox subset | Payment Link create/read/restriction/money/metadata/permission subset implemented; hosted paid object chain waits for Phase 4 |
 
-Real sandbox tests should verify assumptions that only Stripe can prove, including
-actual metadata propagation and object relationships.  Response-shape hostility
-and failure paths stay deterministic in the controlled layer.
+Real sandbox tests should prove only assumptions that require Stripe.  Hostile response shapes and fault injection remain deterministic controlled tests.
 
 ## Threat-Model Tests
 
-`THR-*` scenarios in `doc/threat-model.md` cut across layers.
-
-Phase 2 directly implements pure unit evidence supporting:
+Phase 2/3 executable evidence supports:
 
 ```text
 THR-001 direct Stripe secret redaction
@@ -202,29 +190,19 @@ THR-002 file-backed Stripe secret redaction
 THR-017 contradictory direct + file-backed credentials fail configuration
 ```
 
-THR-001 and THR-002 still require real startup/integration log inspection before
-the deployment boundary is considered fully proven.  THR-018 test/live mismatch
-remains a later environment/Stripe validation concern; the credential primitive can
-identify test versus live restricted keys from their prefixes, but Phase 2 does
-not invent an expected-mode configuration knob.
+The real Stripe workflow additionally demonstrates environment-secret injection where the credential is provided only to the final probe step, while checkout/setup/dependency-install steps do not receive it.
 
-Assign each new threat test to the lowest layer that can genuinely exercise the
-threat.  Credential/log leakage and public-ingress assumptions require integration
-or deployment inspection in addition to pure unit tests.
+Real Kimai startup/log inspection remains necessary before deployment-boundary secret-leakage scenarios are considered fully proven.
 
 ## Pull Request Coverage Rule
 
-A PR that changes executable behavior should identify the affected documented
-scenario IDs when such IDs exist and add/update the appropriate tests in the same
-coherent change.
+A PR that changes executable behavior should identify affected documented scenario IDs when such IDs exist and add/update the appropriate tests in the same coherent change.
 
-A PR need not invent a scenario ID for every trivial implementation detail.  IDs
-exist to make important behavioral and failure contracts discoverable.
+A PR need not invent a scenario ID for every implementation detail.  IDs exist to make consequential behavior and failure contracts discoverable.
 
 ## Completion Evidence
 
-For a behavior to be described as implemented, the repository should be able to
-point to:
+For behavior to be described as implemented, the repository should be able to point to:
 
 ```text
 documented contract
@@ -233,5 +211,4 @@ documented contract
 + required CI/lint/documentation checks
 ```
 
-Historical synthetic results are useful design evidence but do not satisfy this
-completion rule until represented by executable repository tests.
+Historical synthetic results remain useful design evidence, but they do not satisfy this completion rule until represented by executable repository tests.

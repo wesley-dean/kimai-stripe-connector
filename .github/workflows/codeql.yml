@@ -15,13 +15,6 @@ permissions: read-all
 
 jobs:
   analyze:
-    # GitHub CodeQL/code scanning is available for public repositories and for
-    # eligible private repositories with GitHub Code Security enabled. This
-    # project currently does not have code scanning enabled while private, so
-    # running the job there produces an upload/configuration failure rather
-    # than a meaningful security result. Revisit this condition if private
-    # GitHub Code Security is enabled.
-    if: github.event.repository.visibility == 'public'
     name: Analyze (${{ matrix.language }})
     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-22.04' }}
     permissions:

@@ -6,12 +6,18 @@ This repository is expected to be used by humans and AI/LLM-based development to
 
 Before substantive project work, read these documents in order:
 
-1. `doc/project-handoff.md`
-2. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
-3. `doc/adr/ADR-001-single-plugin-architecture.md`
-4. `doc/testing/preimplementation-mock-exercise.md`
-5. `README.md`
-6. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
+1. `doc/decisions.md`
+2. `doc/project-handoff.md`
+3. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
+4. `doc/adr/ADR-001-single-plugin-architecture.md`
+5. `doc/testing/preimplementation-mock-exercise.md`
+6. `doc/testing/e2e-stripe-sandbox.md`
+7. `README.md`
+8. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
+
+Use `doc/decisions.md` as the fast index of accepted and proposed ADR decisions.  It is intentionally concise and should help determine which ADRs are relevant to the task at hand.  It is not authoritative over the ADRs themselves: when implementing, reviewing, or interpreting a decision, read the referenced ADR in full.  If `doc/decisions.md` conflicts with an ADR, the ADR controls.
+
+When an ADR is added, accepted, superseded, deprecated, or materially revised, update `doc/decisions.md` in the same change so the index remains trustworthy.
 
 Do not infer missing project requirements from the original repository template.
 
@@ -98,7 +104,7 @@ Capture:
 
 The project owner explicitly prefers preserving context now and distilling later.
 
-When making or materially changing an architectural decision, update or add an ADR rather than allowing the decision to live only in code or a PR conversation.
+When making or materially changing an architectural decision, update or add an ADR rather than allowing the decision to live only in code or a PR conversation.  Then update `doc/decisions.md` with the current status, concise decision summary, and source reference.
 
 Distinguish facts, design decisions, inferences, synthetic evidence, and unresolved questions.
 
@@ -185,5 +191,7 @@ When ending a substantial design or implementation session, update `doc/project-
 - what was tested;
 - what failed;
 - what should happen next.
+
+If the session changed an architectural decision or ADR status, update `doc/decisions.md` as well.
 
 The repository should be sufficient context for a new chat/session without relying on memory from an earlier conversation.

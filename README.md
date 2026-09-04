@@ -44,17 +44,21 @@ Humans and AI/LLM development tools should read these documents before substanti
 3. [`doc/decisions.md`](doc/decisions.md)
 4. [`doc/project-handoff.md`](doc/project-handoff.md)
 5. [`Configuration Model`](doc/configuration.md)
-6. [`Threat Model`](doc/threat-model.md)
-7. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
-8. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
-9. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
-10. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
-11. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
-12. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
+6. [`Source Documentation Standard`](doc/documentation.md)
+7. [`Threat Model`](doc/threat-model.md)
+8. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
+9. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
+10. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
+11. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
+12. [`ADR-002: Use Documentation-First PHP Source Comments and Generated Reference Docs`](doc/adr/ADR-002-documentation-first-php-comments-and-generated-reference-docs.md)
+13. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+14. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
 
 The handoff document records the project history, hard constraints, current decisions, reference environment, unresolved questions, known template residue, and recommended next work so a new development session does not need access to earlier conversations.
 
 [`doc/configuration.md`](doc/configuration.md) defines the connector's configuration contract.  Namespaced environment variables are the primary interface, file-backed secret injection is preferred for sensitive values in containerized production, and `.env` files are only a tertiary development/test convenience rather than a separate configuration system.
+
+[`doc/documentation.md`](doc/documentation.md) defines the PHP source-documentation contract.  It adapts the documentation-first Doxygen conventions used by `bootstrap` and `adrctl` to native PHPDoc/Doxygen syntax and to this project's payment, security, idempotency, cleanup, and failure-mode responsibilities.
 
 [`doc/threat-model.md`](doc/threat-model.md) is the living architecture threat model.  It captures assets, trust boundaries, attack scenarios, controls, residual risks, open security questions, and a proposed abuse/security test backlog.  Revisit it when implementation details, Stripe permissions, supported payment methods, public interfaces, persistence, or packaging materially change.
 
@@ -129,6 +133,30 @@ ADRs live under `doc/adr`, as configured by `.adr-dir`.
 The repository's ADR template intentionally prefers thorough documentation over premature compression.  Capture reasoning, alternatives, assumptions, failure modes, and uncertainty.  The documentation can be distilled later after implementation and operational experience establish what is durable.
 
 Keep [`doc/decisions.md`](doc/decisions.md) synchronized with the ADR set so humans and tools have a reliable compact index without sacrificing the full ADR record.
+
+## Source Documentation and Doxygen
+
+PHP implementation source follows the documentation-first standard in [`doc/documentation.md`](doc/documentation.md) and the proposed architectural decision in ADR-002.
+
+The standard preserves the information structure established by `bootstrap` and `adrctl` while using PHP-native syntax.  Applicable files, classes, interfaces, methods, helpers, properties, constants, configuration boundaries, and safety mechanisms should document purpose, inputs, return semantics, failures, invariants, side effects, security considerations, ownership, idempotency/concurrency behavior, and realistic examples where those details matter.
+
+Doxygen supports PHP directly, so the project does not need the Bash source filter used by the sibling projects.  The root [`Doxyfile`](Doxyfile) reads maintained PHP files and generates browsable HTML under:
+
+```text
+doc/reference/
+```
+
+That directory is generated build output and is ignored by Git.  Do not edit generated HTML manually.
+
+Once PHP source exists, local reference generation is:
+
+```text
+doxygen Doxyfile
+```
+
+The `Documentation` GitHub Actions workflow performs the same generation automatically and treats Doxygen documentation warnings as failures.  While the repository remains implementation-free, the workflow reports that generation is deferred instead of failing solely because no PHP source exists yet.
+
+A future GitHub Pages publication step can publish `doc/reference/` without committing generated HTML, matching the later documentation-output model used by `adrctl`.
 
 ## Repository Automation
 

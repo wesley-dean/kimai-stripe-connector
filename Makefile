@@ -1,6 +1,29 @@
-.PHONY: docs docs-clean
+.PHONY: analyse check docs docs-clean e2e test
 
 REFERENCE_DOC_DIR := doc/reference
+
+## @brief Run the PHPUnit test suite.
+test:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to run tests' >&2; \
+		exit 1; \
+	}
+	composer test
+
+## @brief Run PHPStan static analysis.
+analyse:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to run static analysis' >&2; \
+		exit 1; \
+	}
+	composer analyse
+
+## @brief Run the ordinary local PHP validation suite.
+check: test analyse
+
+## @brief Run the disposable Kimai plugin-lifecycle E2E exercise.
+e2e:
+	bash tests/e2e/run.sh
 
 ## @brief Generate Doxygen reference documentation from maintained PHP source.
 ##

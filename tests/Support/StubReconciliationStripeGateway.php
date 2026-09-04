@@ -49,10 +49,13 @@ final class StubReconciliationStripeGateway implements ReconciliationStripeGatew
         }
 
         if (isset($this->candidateSequences[$id]) && $this->candidateSequences[$id] !== []) {
-            /** @var list<ReconciliationCandidate> $next */
-            $next = array_shift($this->candidateSequences[$id]);
+            $sequence = $this->candidateSequences[$id];
+            $next = array_shift($sequence);
+            $this->candidateSequences[$id] = $sequence;
 
-            return $next;
+            if ($next !== null) {
+                return $next;
+            }
         }
 
         return $this->candidates[$id] ?? [new ReconciliationCandidate(

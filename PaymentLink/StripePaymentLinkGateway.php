@@ -12,7 +12,6 @@ namespace KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink;
 use InvalidArgumentException;
 use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\UnexpectedValueException;
-use Stripe\PaymentLink;
 use Stripe\Service\PaymentLinkService;
 use Stripe\StripeClient;
 
@@ -41,10 +40,6 @@ final readonly class StripePaymentLinkGateway implements PaymentLinkGateway
             $candidates = [];
 
             foreach ($collection->autoPagingIterator() as $paymentLink) {
-                if (!$paymentLink instanceof PaymentLink) {
-                    throw new InvalidArgumentException('Stripe Payment Link list contained an unexpected object type.');
-                }
-
                 $candidates[] = PaymentLinkCandidate::fromStripePayload($paymentLink->toArray());
             }
 

@@ -53,7 +53,7 @@ final readonly class ReconciliationService
             }
 
             try {
-                $invoice = $this->invoices->findByInvoiceNumber($invoiceNumber);
+                $invoice = $this->invoices->findByInvoiceNumber($instanceId, $invoiceNumber);
             } catch (ReconciliationPersistenceException $exception) {
                 $outcomes[] = new ReconciliationItemOutcome(
                     $invoiceNumber,
@@ -82,6 +82,18 @@ final readonly class ReconciliationService
                 continue;
             }
 
+            $evidence = $plan->candidate();
+            if ($evidence === null) {
+                $outcomes[] = new ReconciliationItemOutcome(
+                    $invoiceNumber,
+                    OperatorResult::INTERNAL_ERROR,
+                    false,
+                    false,
+                    'Reconciliation planner requested a paid transition without retaining Stripe evidence.',
+                );
+                continue;
+            }
+
             if ($dryRun) {
                 $outcomes[] = new ReconciliationItemOutcome(
                     $invoiceNumber,
@@ -94,7 +106,7 @@ final readonly class ReconciliationService
             }
 
             try {
-                $changed = $this->invoices->markPaid($invoice);
+                $changed = $this->invoices->markPaid($invoice, $evidence);
             } catch (ReconciliationPersistenceException $exception) {
                 $outcomes[] = new ReconciliationItemOutcome(
                     $invoiceNumber,

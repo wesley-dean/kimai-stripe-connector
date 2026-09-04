@@ -3,11 +3,6 @@ name: Stripe Sandbox
 
 # yamllint disable-line rule:truthy
 on:
-  pull_request:
-    branches:
-      - main
-    types:
-      - synchronize
   workflow_dispatch:
 
 permissions:
@@ -16,12 +11,6 @@ permissions:
 jobs:
   contract-probe:
     name: Restricted-key contract probe
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' &&
-      github.event.pull_request.number == 8 &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.actor == 'wesley-dean')
     runs-on: ubuntu-24.04
     environment: stripe-sandbox
 

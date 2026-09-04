@@ -273,13 +273,11 @@ The disposable Kimai E2E now invokes both `kimai:stripe:reconcile --dry-run` and
 
 ## Current CI Note
 
-Early draft CI has already supplied useful implementation feedback rather than being treated as final evidence.  One run proved 205 tests / 472 assertions and PHPStan clean before PHPCS stopped on two 122-character warnings; those lines were wrapped.  An earlier controlled-SDK test also exposed that stripe-php form-encodes `active=false` as the wire value `"false"`; production behavior was correct and the test was corrected to assert the actual SDK request contract.
+Early draft CI supplied useful implementation feedback before the branch stabilized.  It exposed and helped correct a locked-SDK wire-format assertion, two PHPCS line-length warnings, and a missing managed-link rediscovery race check.
 
-Subsequent safety changes added managed-link rediscovery and another race test, so the earlier 205/472 checkpoint is no longer the final branch count.  Do not quote a final Phase 5 test count until an exact-current-head PHP workflow finishes successfully.
+Immediately before the final security-gate restoration, exact head `373ef40cec1497759580baf4042a89acf8b23273` passed PHP 8.2 through 8.5, Documentation, disposable Kimai E2E, and MegaLinter with zero errors and zero warnings among enabled linters.  Grype had intentionally remained disabled during the rapid-development loop.
 
-Treat current CI as moving evidence while the branch is still changing.  Before recommending PR #10 for owner review, validate the exact final head across PHP 8.2-8.5, Documentation, disposable Kimai E2E, and every enabled MegaLinter linter.
-
-`REPOSITORY_GRYPE` is temporarily disabled during the current rapid-development loop at owner direction because it adds substantial latency per commit.  This is a development-speed exception, not a policy change.  Re-enable it after the development flurry before relying on later full security-scan evidence.
+Grype has now been re-enabled.  Before recommending PR #10 for owner review, require one complete exact-current-head pass of PHP 8.2 through 8.5, Documentation, disposable Kimai E2E, and MegaLinter with Grype active and every active linter at exactly zero errors and zero warnings.
 
 ## Production-Shaped Packaging Rule
 

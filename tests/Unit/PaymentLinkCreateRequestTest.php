@@ -33,6 +33,11 @@ final class PaymentLinkCreateRequestTest extends TestCase
             ],
         ], $parameters['line_items']);
         self::assertSame(['card'], $parameters['payment_method_types']);
+        self::assertSame([
+            'completed_sessions' => [
+                'limit' => 1,
+            ],
+        ], $parameters['restrictions']);
         self::assertSame($metadata->toStripeMetadata(), $parameters['metadata']);
         self::assertSame(
             $metadata->toStripeMetadata(),

@@ -32,7 +32,7 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "App\\Plugin\\": "tests/stubs/App/Plugin/",
+      "App\\": "tests/stubs/App/",
       "KimaiStripeConnectorTests\\": "tests/"
     }
   },

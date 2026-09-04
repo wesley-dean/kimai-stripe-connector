@@ -21,32 +21,31 @@ require '/opt/kimai/var/plugins/KimaiStripeConnectorBundle/vendor/autoload.php';
 /**
  * @return non-empty-string
  */
-function requiredEnvironment(string $name): string
-{
+$requiredEnvironment = static function (string $name): string {
     $value = getenv($name);
     if (!is_string($value) || trim($value) === '') {
         throw new RuntimeException('Required environment is incomplete: ' . $name . '.');
     }
 
     return $value;
-}
+};
 
 /**
  * @param array<string, mixed> $actual
  * @param array<string, string> $expected
  */
-function assertExactMetadata(array $actual, array $expected, string $label): void
-{
+$assertExactMetadata = static function (array $actual, array $expected, string $label): void {
     ksort($actual);
     ksort($expected);
 
     if ($actual !== $expected) {
-        throw new RuntimeException($label . ' metadata did not match the expected invoice identity.');
+        throw new RuntimeException(
+            $label . ' metadata did not match the expected invoice identity.',
+        );
     }
-}
+};
 
-function objectId(mixed $value): ?string
-{
+$objectId = static function (mixed $value): ?string {
     if (is_string($value) && $value !== '') {
         return $value;
     }
@@ -59,15 +58,15 @@ function objectId(mixed $value): ?string
     }
 
     return null;
-}
+};
 
 /**
  * @return array<string, mixed>
  */
-function exactPaymentLink(
+$exactPaymentLink = static function (
     StripeClient $client,
     InvoiceMetadata $expected,
-): array {
+) use ($assertExactMetadata): array {
     $matches = [];
 
     foreach ($client->paymentLinks->all(['limit' => 100])->autoPagingIterator() as $paymentLink) {
@@ -89,7 +88,7 @@ function exactPaymentLink(
             continue;
         }
 
-        assertExactMetadata($metadata, $expected->toStripeMetadata(), 'Payment Link');
+        $assertExactMetadata($metadata, $expected->toStripeMetadata(), 'Payment Link');
         $matches[] = $payload;
     }
 
@@ -101,17 +100,25 @@ function exactPaymentLink(
     }
 
     return $matches[0];
-}
+};
 
 /**
  * @param array<string, mixed> $link
  * @return array{id: string, url: string}
  */
-function validatePaymentLink(StripeClient $client, array $link, InvoiceMetadata $expected): array
-{
+$validatePaymentLink = static function (
+    StripeClient $client,
+    array $link,
+    InvoiceMetadata $expected,
+): array {
     $id = $link['id'] ?? null;
     $url = $link['url'] ?? null;
-    if (!is_string($id) || $id === '' || !is_string($url) || !str_starts_with($url, 'https://')) {
+    if (
+        !is_string($id)
+        || $id === ''
+        || !is_string($url)
+        || !str_starts_with($url, 'https://')
+    ) {
         throw new RuntimeException('Stripe Payment Link identity or URL is malformed.');
     }
 
@@ -150,16 +157,16 @@ function validatePaymentLink(StripeClient $client, array $link, InvoiceMetadata 
     }
 
     return ['id' => $id, 'url' => $url];
-}
+};
 
 /**
  * @return array{session: string, payment_intent: string, charge: string, charge_created: int}|null
  */
-function successfulPaymentEvidence(
+$successfulPaymentEvidence = static function (
     StripeClient $client,
     string $paymentLinkId,
     InvoiceMetadata $expected,
-): ?array {
+) use ($assertExactMetadata, $objectId): ?array {
     $successful = [];
 
     foreach (
@@ -173,21 +180,30 @@ function successfulPaymentEvidence(
         if (!is_array($sessionMetadata)) {
             throw new RuntimeException('Checkout Session metadata is missing or malformed.');
         }
-        assertExactMetadata($sessionMetadata, $expected->toStripeMetadata(), 'Checkout Session');
+        $assertExactMetadata(
+            $sessionMetadata,
+            $expected->toStripeMetadata(),
+            'Checkout Session',
+        );
 
         if (
             ($sessionPayload['amount_total'] ?? null) !== $expected->money()->minorUnits()
             || ($sessionPayload['currency'] ?? null) !== $expected->money()->currency()->value()
-            || objectId($sessionPayload['payment_link'] ?? null) !== $paymentLinkId
+            || $objectId($sessionPayload['payment_link'] ?? null) !== $paymentLinkId
         ) {
-            throw new RuntimeException('Checkout Session financial or relationship evidence conflicts with the invoice.');
+            throw new RuntimeException(
+                'Checkout Session financial or relationship evidence conflicts with the invoice.',
+            );
         }
 
-        if (($sessionPayload['status'] ?? null) !== 'complete' || ($sessionPayload['payment_status'] ?? null) !== 'paid') {
+        if (
+            ($sessionPayload['status'] ?? null) !== 'complete'
+            || ($sessionPayload['payment_status'] ?? null) !== 'paid'
+        ) {
             continue;
         }
 
-        $paymentIntentId = objectId($sessionPayload['payment_intent'] ?? null);
+        $paymentIntentId = $objectId($sessionPayload['payment_intent'] ?? null);
         if ($paymentIntentId === null) {
             throw new RuntimeException('Paid Checkout Session has no usable PaymentIntent ID.');
         }
@@ -197,7 +213,11 @@ function successfulPaymentEvidence(
         if (!is_array($intentMetadata)) {
             throw new RuntimeException('PaymentIntent metadata is missing or malformed.');
         }
-        assertExactMetadata($intentMetadata, $expected->toStripeMetadata(), 'PaymentIntent');
+        $assertExactMetadata(
+            $intentMetadata,
+            $expected->toStripeMetadata(),
+            'PaymentIntent',
+        );
 
         if (
             ($intentPayload['status'] ?? null) !== 'succeeded'
@@ -205,10 +225,12 @@ function successfulPaymentEvidence(
             || ($intentPayload['amount_received'] ?? null) !== $expected->money()->minorUnits()
             || ($intentPayload['currency'] ?? null) !== $expected->money()->currency()->value()
         ) {
-            throw new RuntimeException('PaymentIntent does not prove the exact successful invoice payment.');
+            throw new RuntimeException(
+                'PaymentIntent does not prove the exact successful invoice payment.',
+            );
         }
 
-        $chargeId = objectId($intentPayload['latest_charge'] ?? null);
+        $chargeId = $objectId($intentPayload['latest_charge'] ?? null);
         if ($chargeId === null) {
             throw new RuntimeException('Successful PaymentIntent has no usable latest Charge ID.');
         }
@@ -223,9 +245,12 @@ function successfulPaymentEvidence(
             || ($chargePayload['amount_captured'] ?? null) !== $expected->money()->minorUnits()
             || ($chargePayload['amount_refunded'] ?? null) !== 0
             || ($chargePayload['currency'] ?? null) !== $expected->money()->currency()->value()
-            || objectId($chargePayload['payment_intent'] ?? null) !== $paymentIntentId
+            || $objectId($chargePayload['payment_intent'] ?? null) !== $paymentIntentId
         ) {
-            throw new RuntimeException('Charge does not prove the exact captured, non-refunded, undisputed invoice payment.');
+            throw new RuntimeException(
+                'Charge does not prove the exact captured, non-refunded, '
+                . 'undisputed invoice payment.',
+            );
         }
 
         $chargeCreated = $chargePayload['created'] ?? null;
@@ -251,14 +276,13 @@ function successfulPaymentEvidence(
     }
 
     return $successful[0] ?? null;
-}
+};
 
 /**
  * @param array<int, string> $argv
  * @return array{0: InvoiceMetadata, 1: string}
  */
-function expectedInvoice(array $argv): array
-{
+$expectedInvoice = static function (array $argv) use ($requiredEnvironment): array {
     $invoiceNumber = $argv[2] ?? null;
     $minorUnits = $argv[3] ?? null;
     $currency = $argv[4] ?? null;
@@ -273,7 +297,9 @@ function expectedInvoice(array $argv): array
         throw new RuntimeException('Currency argument is required.');
     }
 
-    $instanceId = new KimaiInstanceId(requiredEnvironment('KIMAI_STRIPE_CONNECTOR_INSTANCE_ID'));
+    $instanceId = new KimaiInstanceId(
+        $requiredEnvironment('KIMAI_STRIPE_CONNECTOR_INSTANCE_ID'),
+    );
 
     return [
         new InvoiceMetadata(
@@ -283,9 +309,9 @@ function expectedInvoice(array $argv): array
         ),
         $invoiceNumber,
     ];
-}
+};
 
-$secret = requiredEnvironment('KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY');
+$secret = $requiredEnvironment('KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY');
 $redactor = new SecretRedactor();
 
 try {
@@ -298,7 +324,9 @@ try {
     $mode = $argv[1] ?? '';
 
     if ($mode === 'cleanup') {
-        $instanceId = new KimaiInstanceId(requiredEnvironment('KIMAI_STRIPE_CONNECTOR_INSTANCE_ID'));
+        $instanceId = new KimaiInstanceId(
+            $requiredEnvironment('KIMAI_STRIPE_CONNECTOR_INSTANCE_ID'),
+        );
         $count = 0;
 
         foreach ($client->paymentLinks->all(['limit' => 100])->autoPagingIterator() as $paymentLink) {
@@ -317,19 +345,30 @@ try {
                 continue;
             }
 
-            $updated = $client->paymentLinks->update($payload['id'], ['active' => false])->toArray();
+            $updated = $client->paymentLinks
+                ->update($payload['id'], ['active' => false])
+                ->toArray();
             if (($updated['active'] ?? null) !== false) {
-                throw new RuntimeException('Stripe did not confirm Payment Link deactivation during E2E cleanup.');
+                throw new RuntimeException(
+                    'Stripe did not confirm Payment Link deactivation during E2E cleanup.',
+                );
             }
             $count++;
         }
 
-        fwrite(STDOUT, sprintf("Deactivated %d run-owned Stripe Payment Link(s).\n", $count));
+        fwrite(STDOUT, sprintf(
+            "Deactivated %d run-owned Stripe Payment Link(s).\n",
+            $count,
+        ));
         exit(0);
     }
 
-    [$expected] = expectedInvoice($argv);
-    $link = validatePaymentLink($client, exactPaymentLink($client, $expected), $expected);
+    [$expected] = $expectedInvoice($argv);
+    $link = $validatePaymentLink(
+        $client,
+        $exactPaymentLink($client, $expected),
+        $expected,
+    );
 
     if ($mode === 'locate') {
         fwrite(STDOUT, json_encode($link, JSON_THROW_ON_ERROR) . "\n");
@@ -347,10 +386,13 @@ try {
     $deadline = time() + $waitSeconds;
     $nextProgress = time();
 
-    fwrite(STDOUT, sprintf("Waiting up to %d seconds for hosted Stripe Checkout completion.\n", $waitSeconds));
+    fwrite(STDOUT, sprintf(
+        "Waiting up to %d seconds for hosted Stripe Checkout completion.\n",
+        $waitSeconds,
+    ));
 
     do {
-        $evidence = successfulPaymentEvidence($client, $link['id'], $expected);
+        $evidence = $successfulPaymentEvidence($client, $link['id'], $expected);
         if ($evidence !== null) {
             fwrite(STDOUT, json_encode($evidence, JSON_THROW_ON_ERROR) . "\n");
             exit(0);

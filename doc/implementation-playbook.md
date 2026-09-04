@@ -206,13 +206,16 @@ Current harness behavior:
 fresh Compose project
 -> fresh MySQL/Kimai/plugin volumes
 -> Kimai 2.65.0
--> install checked-out plugin into var/plugins
+-> stage checked-out source from composer.lock with --no-dev
+-> install production-shaped stage into var/plugins
 -> kimai:reload
 -> verify plugin lifecycle
 -> remove plugin
 -> kimai:reload
--> destroy containers/networks/volumes
+-> destroy containers/networks/volumes and local staging directory
 ```
+
+The E2E harness deliberately does not copy the repository-root development `vendor/` tree into Kimai.  It builds an isolated runtime dependency tree from the committed lockfile so the lifecycle test exercises the same dependency shape intended for the self-contained production plugin artifact.
 
 `tests/e2e/run.sh` owns cleanup via a shell trap and runs `docker compose down --volumes --remove-orphans`.
 

@@ -166,7 +166,10 @@ $successfulPaymentEvidence = static function (
     StripeClient $client,
     string $paymentLinkId,
     InvoiceMetadata $expected,
-) use ($assertExactMetadata, $objectId): ?array {
+) use (
+    $assertExactMetadata,
+    $objectId,
+): ?array {
     $successful = [];
 
     foreach (

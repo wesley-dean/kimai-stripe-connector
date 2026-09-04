@@ -23,12 +23,15 @@ As of this handoff:
 - `make check` runs the ordinary local PHP validation suite;
 - MegaLinter uses the PHP flavor and remains a zero-error/zero-warning gate with auto-fixes disabled;
 - `editorconfig-checker` is intentionally disabled in MegaLinter; `.editorconfig` remains contributor/editor guidance rather than a repository quality gate;
-- PHP CI targets PHP 8.2, 8.3, 8.4, and 8.5 and installs the same committed dependency graph on every runtime;
+- PHP CI targets PHP 8.2, 8.3, 8.4, and 8.5 and installs the same committed development dependency graph on every runtime;
 - a disposable Kimai 2.65.0 + MySQL E2E lifecycle harness exists under `tests/e2e/`;
-- the E2E harness constructs fresh containers/volumes, installs the plugin, reloads Kimai, verifies it, removes it, reloads again, and destroys all local test state;
+- E2E stages a production-shaped plugin from the checked-out source and committed lockfile with Composer `--no-dev`, rather than copying the repository-root development `vendor/` tree into Kimai;
+- the staged plugin lifecycle has been verified against real Kimai 2.65.0: install, reload, resolve bundle, verify Kimai CLI, remove, reload, and verify bundle absence all complete successfully;
 - the disposable Kimai healthcheck preserves the upstream steady-state probe but uses a 30-minute `start_period` because pristine Kimai startup/migrations can legitimately exceed the image's default startup grace period;
 - Doxygen is configured to generate PHP reference documentation under ignored `doc/reference/`;
 - project-specific CONTRIBUTING, SUPPORT, SECURITY, configuration, threat-model, testing, and hosting documentation replaces the most misleading template residue;
+- the implementation-preparation code/documentation head immediately preceding this handoff update passed PHP 8.2–8.5, Documentation, disposable Kimai E2E, and MegaLinter;
+- the corresponding MegaLinter report contained zero errors and zero warnings for every active linter;
 - no production Stripe mutation behavior has been implemented yet;
 - no real Stripe credential is committed or expected in the repository; and
 - no production/live Stripe payment has been performed by this project.
@@ -325,7 +328,7 @@ It is based closely on Kimai's official Docker Compose model and pins:
 kimai/kimai2:2.65.0
 ```
 
-Every run gets a unique Compose project and fresh named volumes.  The shell harness installs the checked-out self-contained plugin into the disposable plugin volume, reloads Kimai, verifies the bundle, removes it, reloads again, and always executes cleanup via an EXIT/INT/TERM trap.
+Every run gets a unique Compose project and fresh named volumes.  The harness creates a temporary production-shaped plugin stage from the checked-out source, runs Composer against the committed lockfile with `--no-dev`, copies that stage into the disposable plugin volume, reloads Kimai, verifies the bundle, removes it, reloads again, and always executes cleanup via an EXIT/INT/TERM trap.
 
 Cleanup includes:
 
@@ -333,7 +336,26 @@ Cleanup includes:
 docker compose down --volumes --remove-orphans
 ```
 
-No Kimai database/application state is intentionally reused between runs.
+The local plugin staging directory is also removed.  No Kimai database/application state is intentionally reused between runs.
+
+### E2E dependency-shape finding
+
+An earlier version of the harness ran a normal development `composer install` at the repository root and then copied the entire checkout, including that development `vendor/` tree, into Kimai.
+
+Kimai itself was healthy: Kimai 2.65.0 completed installation, migrations, cache work, admin-user creation, and its HTTP health probe successfully.  The failure occurred only after plugin installation and `kimai:reload`, with PHP reporting a duplicate declaration of `Psr\Container\ContainerInterface` from Kimai's vendor tree.
+
+That failure did not demonstrate a broken Kimai bootstrap.  It demonstrated that a development workspace containing PHPUnit, PHPStan, Symfony development dependencies, and other `require-dev` packages is not the install artifact defined by ADR-012.
+
+The corrected harness stages the runtime artifact shape explicitly:
+
+```text
+checked-out source without repository-root vendor/
+-> composer install --no-dev from committed composer.lock
+-> production-shaped plugin stage
+-> var/plugins/KimaiStripeConnectorBundle
+```
+
+This corrected lifecycle has passed repeatedly in GitHub Actions.  Preserve the distinction between the development dependency graph and the production plugin dependency graph in future packaging/E2E work.
 
 Kimai's upstream health probe remains the steady-state health signal.  The disposable Compose environment overrides only `start_period`, setting it to 30 minutes so first-run migrations/initialization do not consume the image's small default retry budget.  Successful probes can still mark the container healthy before the grace period expires.
 
@@ -360,6 +382,8 @@ KimaiPlugin\KimaiStripeConnectorBundle\
 ```
 
 Kimai does not automatically install third-party Composer dependencies declared by an in-repository plugin.  The connector therefore carries a plugin-local `vendor/` tree in release artifacts and loads its own Composer autoloader during bundle construction before connector services are consumed.
+
+That plugin-local vendor tree is the production dependency subset produced from the committed lockfile.  The repository-root development `vendor/` tree is not a distributable plugin artifact.
 
 Do not modify Kimai's root `composer.json`, `composer.lock`, `vendor/`, or `config/bundles.php` as part of normal installation.
 
@@ -421,9 +445,15 @@ A green workflow status is not sufficient if the report contains warnings.  Comp
 
 `editorconfig-checker` is intentionally not part of that quality gate.  `.editorconfig` provides editor defaults, while language/file-specific tools such as PHPCS, PHP-CS-Fixer, markdownlint, yamllint, Prettier, ShellCheck, and shfmt own their applicable enforceable standards.
 
-The PHP workflow validates the committed Composer metadata/lockfile, installs the exact graph, then runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer across PHP 8.2–8.5.
+The PHP workflow validates the committed Composer metadata/lockfile, installs the exact development graph, then runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer across PHP 8.2–8.5.
 
-MegaLinter installs the same locked Composer graph before running PHP analysis so its PHPStan environment is complete.  Psalm is not an adopted second static-analysis contract; PHPStan is the project's selected static analyzer.
+MegaLinter installs the same locked development graph before PHP analysis so its PHPStan environment is complete.  Psalm is not an adopted second static-analysis contract; PHPStan is the project's selected static analyzer.
+
+MegaLinter's SARIF reporter is intentionally disabled for this private repository.  The project-locked PHPStan does not expose the SARIF formatter MegaLinter attempted to force, which previously caused the linter wrapper to fail before PHPStan analyzed the code.  Disabling the reporter changes reporting format only; PHPStan remains active and blocking.
+
+Generated Composer `vendor/` contents are explicitly excluded from repository-level MegaLinter scanners.  Several repository scanners do not uniformly honor `.gitignore`; scanning third-party dependency source had produced BetterLeaks, Grype, and TruffleHog findings in upstream dependency examples/tests rather than project source.  Dependency/security scanning of project inputs remains active while generated third-party source is excluded as build output.
+
+On the implementation-preparation head immediately preceding this handoff update, every active MegaLinter row reported `0` errors and `0` warnings, including actionlint, zizmor, ShellCheck, shfmt, JSON/YAML Prettier, markdownlint, markdown-table-formatter, PHPCS, PHP-CS-Fixer, PHPLint, PHPStan, BetterLeaks, Checkov, Grype, Secretlint, Syft, Trivy, Trivy-SBOM, TruffleHog, CSpell, xmllint, and v8r.
 
 The Kimai E2E workflow exercises the real disposable plugin lifecycle.
 
@@ -457,7 +487,9 @@ This is a permanent supported operational fallback.
 
 ## Immediate Next Work
 
-After the implementation-preparation branch is accepted and clean, the next feature session should:
+The implementation-preparation code/documentation head immediately preceding this handoff update satisfied the intended Phase 1 gates: PHP 8.2–8.5 passed, Doxygen passed, the production-shaped Kimai lifecycle E2E passed, and MegaLinter reported zero errors and zero warnings.  Inspect the current PR head before beginning feature work because this handoff update itself is a later documentation-only commit.
+
+After PR #5 is reviewed and accepted by the project owner, the next feature session should:
 
 1. implement configuration parsing and validation;
 2. implement stable instance identity;
@@ -467,8 +499,6 @@ After the implementation-preparation branch is accepted and clean, the next feat
 6. add the corresponding `CFG-*`, `MNY-*`, metadata, and threat-model tests;
 7. only then begin real Payment Link mutation behavior; and
 8. add real Stripe sandbox E2E only when an authorized sandbox restricted key is available.
-
-Before feature work starts, PR #5 itself must still be inspected for fully clean PHP, MegaLinter, Documentation, and Kimai E2E results and reviewed by the project owner.
 
 Do not skip directly from the inert bundle skeleton to invoice paid-state mutation.
 

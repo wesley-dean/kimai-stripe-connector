@@ -116,7 +116,7 @@ find "${PLUGIN_ROOT}" -exec touch -h -t 198001010000.00 {} +
 
 rm -f "${ARCHIVE_PATH}" "${ARCHIVE_PATH}.sha256"
 
-(
+( 
   cd -- "${BUILD_ROOT}"
   export LC_ALL=C
   export TZ=UTC
@@ -125,7 +125,7 @@ rm -f "${ARCHIVE_PATH}" "${ARCHIVE_PATH}.sha256"
     | zip -X -q -y "${ARCHIVE_PATH}" -@
 )
 
-(
+( 
   cd -- "${OUTPUT_DIR}"
   sha256sum "${ARCHIVE_NAME}" > "${ARCHIVE_NAME}.sha256"
 )

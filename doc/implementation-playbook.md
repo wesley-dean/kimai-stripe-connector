@@ -26,7 +26,7 @@ Unless the user explicitly narrows the task, a session following this playbook S
 6. record material decisions in ADRs and `doc/decisions.md`;
 7. implement the smallest coherent increment;
 8. add or update executable tests;
-9. run the applicable validation/lint/test suite;
+9. run the applicable validation/lint/test suite and require MegaLinter to complete with zero reported errors and zero reported warnings;
 10. update operational, configuration, threat-model, compatibility, and handoff documentation when affected;
 11. use Conventional Commit messages;
 12. open or update a focused pull request;
@@ -73,6 +73,10 @@ accepted ADR
 If two authoritative documents genuinely conflict, stop the conflicting implementation work, document the inconsistency, and resolve it through an ADR/update rather than silently choosing one.
 
 ## Working Style
+
+Work as a trusted engineering colleague and peer.  Do not adopt a deferential assistant posture that waits for step-by-step direction when the repository already provides enough context to proceed.
+
+Exercise independent judgment.  Challenge assumptions when evidence warrants it, including assumptions made by the project owner.  Surface weak evidence, contradictions, risks, and materially better alternatives directly.  Explain disagreements and tradeoffs.  Ordinary reversible engineering choices should be made collaboratively and autonomously within the documented stop conditions.
 
 The project prefers small, boring, auditable software.
 
@@ -141,6 +145,19 @@ A PR should describe:
 Do not merge a PR unless the user explicitly asks for the merge or repository automation is already explicitly configured to do so for that class of change.
 
 Do not publish a release merely because code is ready.
+
+## Validation and Linting Rules
+
+MegaLinter is a blocking quality gate.
+
+- Keep `DISABLE_ERRORS: false` in `.mega-linter.yml`.
+- Keep `APPLY_FIXES: false` in `.github/workflows/megalinter.yml`.
+- A green workflow badge is necessary but not sufficient: inspect the MegaLinter report/log and require zero reported errors and zero reported warnings.
+- Do not accept warnings as harmless background noise for a completed change.
+- Do not use MegaLinter automatic source modification to make a branch pass.  Fix the underlying source/configuration issue deliberately and rerun validation.
+- If a linter is intentionally disabled, document why; do not suppress a finding merely to obtain a green run.
+
+The same principle applies to other required checks: distinguish a genuinely clean result from a configuration that merely hides failures.
 
 ## Research Rules
 
@@ -465,6 +482,7 @@ Before claiming a supported release:
 - verify cleanup safety;
 - verify secret/log handling;
 - verify dependency/security scanning;
+- verify MegaLinter completes with zero reported errors and zero reported warnings;
 - verify documentation matches behavior.
 
 ADR-001 should remain `Proposed` until its acceptance gate is actually satisfied.
@@ -644,7 +662,8 @@ I determined Phase N was the next incomplete phase.
 I verified the relevant current Kimai/Stripe behavior.
 I implemented X on branch Y.
 I added/updated tests A, B, and C.
-I ran checks D and E; they passed.
+I ran checks D and E; they passed without warnings or errors.
+I inspected the MegaLinter report and confirmed zero errors and zero warnings.
 I updated documentation F because the behavior changed.
 I opened/updated PR #N.
 The remaining blocker is Z, which meets a documented stop condition.
@@ -662,7 +681,7 @@ The project documentation exists specifically to avoid unnecessary rediscovery a
 
 A minimal instruction should be sufficient:
 
-> Inspect `wesley-dean/kimai-stripe-connector`.  Read `doc/implementation-playbook.md` and follow it.  Make reasonable reversible engineering decisions autonomously, keep the repository documentation synchronized with the work, and continue until you either complete a coherent implementation increment or encounter one of the playbook's explicit stop conditions.  Do not merge or release anything without my explicit approval.
+> Inspect `wesley-dean/kimai-stripe-connector`.  Read `doc/implementation-playbook.md` and follow it.  Work with me as a trusted engineering colleague and peer: exercise independent judgment, challenge assumptions when warranted, and make reasonable reversible engineering decisions autonomously.  Keep the repository documentation synchronized with the work, require MegaLinter to be clean with zero errors and zero warnings, and continue until you either complete a coherent implementation increment or encounter one of the playbook's explicit stop conditions.  Do not merge or release anything without my explicit approval.
 
 For a narrower task, append the desired phase or outcome, for example:
 
@@ -680,6 +699,6 @@ Before ending a substantial session:
 2. update `doc/decisions.md` for ADR/status changes;
 3. update configuration/threat/compatibility/testing/runbook docs when affected;
 4. ensure commits/PR description reflect actual scope;
-5. record tests actually run and their results;
+5. record tests actually run and their results, including whether MegaLinter was inspected for zero errors and zero warnings;
 6. distinguish completed work from planned or blocked work;
 7. leave the repository in a state where another session can resume by reading this playbook and the linked documentation.

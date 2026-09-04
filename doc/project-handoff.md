@@ -193,12 +193,16 @@ There is no transaction spanning Kimai and Stripe and no connector-owned distrib
 For a planned non-dry-run cleanup, `CleanupService` currently performs:
 
 1. successful Kimai lookup proving no invoice;
-2. Stripe payment-evidence discovery;
-3. pure cleanup planning;
-4. a second Kimai lookup immediately before mutation;
-5. a second Stripe child-evidence discovery;
-6. a second pure cleanup plan; and
-7. `StripeCleanupGateway` retrieval/revalidation immediately before `active=false`.
+2. initial current-instance managed Payment Link discovery and exact-one-link proof;
+3. Stripe payment-evidence discovery for that link;
+4. pure cleanup planning;
+5. a second Kimai lookup immediately before mutation;
+6. fresh current-instance managed Payment Link rediscovery and regrouping for the invoice;
+7. fresh Stripe child-evidence discovery from the refreshed link set;
+8. a second pure cleanup plan, including exact-one-link proof; and
+9. `StripeCleanupGateway` retrieval/revalidation immediately before `active=false`.
+
+The second managed-link discovery is intentional.  If another connector-managed Payment Link appears after the first cleanup plan, automatic deactivation stops with `CONFLICT` instead of mutating based on stale cardinality evidence.
 
 This closes preventable TOCTOU windows without adding a connector database or distributed locking service.  A very small distributed race remains between the final Stripe read and Stripe's update.  The project does not claim impossible cross-system atomicity.
 
@@ -228,7 +232,7 @@ The grace period remains:
 KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS
 ```
 
-with default 7, minimum 1, and maximum 3650 days.
+with default 7, minimum 1, and maximum 3650 days.  The exact boundary is inclusive: an otherwise eligible link whose age equals the grace period is old enough for cleanup.
 
 The cleanup command uses the ADR-013 process codes already established by reconciliation:
 
@@ -258,6 +262,7 @@ Current Phase 5 tests include:
 - dry-run with no Stripe mutation;
 - actual cleanup with repeated Kimai/Stripe revalidation;
 - Kimai invoice appearing between planning and mutation;
+- a second competing managed Payment Link appearing between planning and mutation;
 - successful Stripe payment appearing between planning and mutation;
 - retryable Stripe deactivation failure;
 - locked Stripe SDK GET-then-POST request construction;
@@ -268,7 +273,9 @@ The disposable Kimai E2E now invokes both `kimai:stripe:reconcile --dry-run` and
 
 ## Current CI Note
 
-The first draft-PR CI pass exposed one test-contract mismatch: the locked Stripe SDK form-encodes the update parameter as `active="false"`, while the integration assertion initially expected a PHP boolean.  Production code was correct; the test was corrected to assert the actual SDK wire representation.
+Early draft CI has already supplied useful implementation feedback rather than being treated as final evidence.  One run proved 205 tests / 472 assertions and PHPStan clean before PHPCS stopped on two 122-character warnings; those lines were wrapped.  An earlier controlled-SDK test also exposed that stripe-php form-encodes `active=false` as the wire value `"false"`; production behavior was correct and the test was corrected to assert the actual SDK request contract.
+
+Subsequent safety changes added managed-link rediscovery and another race test, so the earlier 205/472 checkpoint is no longer the final branch count.  Do not quote a final Phase 5 test count until an exact-current-head PHP workflow finishes successfully.
 
 Treat current CI as moving evidence while the branch is still changing.  Before recommending PR #10 for owner review, validate the exact final head across PHP 8.2-8.5, Documentation, disposable Kimai E2E, and every enabled MegaLinter linter.
 
@@ -312,7 +319,7 @@ A new engineering session should:
 4. preserve the verified Stripe permission set;
 5. preserve the shared exact money policy and Phase 4 reconciliation behavior;
 6. keep cleanup stricter than ordinary reconciliation `NO_CHANGE` and retain ambiguous states;
-7. preserve repeated Kimai/Stripe revalidation and the narrow `active=false` mutation seam;
+7. preserve repeated Kimai, managed-link, payment-evidence, and target revalidation plus the narrow `active=false` mutation seam;
 8. maintain production-shaped Kimai packaging and dev-only test stubs;
 9. treat full hosted paid E2E as unproven until actually executed; and
 10. never merge, release, make the repository public, use live Stripe credentials, or perform live financial mutation without explicit owner authorization.

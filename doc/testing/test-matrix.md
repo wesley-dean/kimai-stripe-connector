@@ -88,12 +88,12 @@ mutation exists.
 
 | Area                  | Repository tests                                           | Current evidence                                                                 |
 |-----------------------|------------------------------------------------------------|----------------------------------------------------------------------------------|
-| Configuration         | `ConfigurationTest`                                        | CFG-001..010 and CFG-013 parser semantics; safe-context support for CFG-011/012   |
+| Configuration         | `ConfigurationTest`                                        | CFG-001..010 and CFG-013 parser semantics; safe-context support for CFG-011/012  |
 | Stable identity       | `KimaiInstanceIdTest`, `ConfigurationTest`, `MetadataTest` | Canonical non-nil UUID validation and lowercase metadata identity                |
 | Money                 | `MoneyTest`                                                | MNY-001..008 exact conversion, fail-closed currency policy, Stripe amount bounds |
 | Metadata              | `MetadataTest`                                             | Version-1 write/parse validation, unknown-version rejection, Stripe value bounds |
 | Secret safety         | `SecretRedactorTest`, `ConfigurationTest`                  | Known-secret redaction and credential-free safe configuration context            |
-| Operator results      | `OperatorResultTest`                                       | ADR-013 category identifiers and success/no-change semantics                      |
+| Operator results      | `OperatorResultTest`                                       | ADR-013 category identifiers and success/no-change semantics                     |
 | Stripe client factory | `StripeClientFactoryTest`                                  | Restricted credential reaches SDK client; SDK API version is not overridden      |
 
 The Phase 2 Stripe client test constructs an SDK client only.  It makes no remote
@@ -129,8 +129,8 @@ than replacing that record.
 
 ## Money Backlog
 
-| IDs          | Primary layer | Status / notes                                                                                   |
-|--------------|---------------|--------------------------------------------------------------------------------------------------|
+| IDs          | Primary layer | Status / notes                                                                                    |
+|--------------|---------------|---------------------------------------------------------------------------------------------------|
 | MNY-001..008 | Unit          | Implemented with exact text parsing, no float/rounding, fail-closed currencies, and Stripe bounds |
 
 Money conversion receives broad parameterized coverage because it is cheap and

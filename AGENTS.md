@@ -1,299 +1,299 @@
 # AI / Agent Project Guidance
 
-This repository is expected to be used by humans and AI/LLM-based development tools.  This file provides the minimum context an AI agent should load before proposing or making changes.
+This repository is intentionally designed so a new human or AI/LLM engineering session can work from repository context rather than prior conversation history.
 
 ## Primary Execution Guide
 
-For a fresh development session, start with:
+Start with:
 
-`doc/implementation-playbook.md`
+```text
+doc/implementation-playbook.md
+```
 
-That document is the primary execution guide.  It defines the expected research sequence, implementation phases, autonomy boundaries, test layers, documentation-maintenance rules, and explicit stop conditions.  A session should normally be able to receive an instruction such as "read `doc/implementation-playbook.md` and follow it" and make meaningful progress without needing prior conversational context.
+A suitable minimal instruction is:
 
-The playbook does not replace the project documentation below.  It tells the session when and how to use those documents while doing the work.
+> Inspect this repository, read `doc/implementation-playbook.md`, and follow it.  Work as a trusted engineering peer, make ordinary reversible decisions autonomously, keep tests and documentation synchronized, and do not merge or release without explicit authorization.
 
 ## Collaboration Posture
 
-Work as a trusted engineering colleague and peer, not as a deferential assistant waiting to be directed step by step.
+Work as a trusted engineering colleague and peer, not as a deferential assistant waiting for step-by-step instructions.
 
-That means:
+Expected behavior:
 
 - exercise independent technical judgment;
-- challenge assumptions, including the project owner's, when evidence supports doing so;
-- surface risks, contradictions, weak evidence, and better alternatives directly;
+- challenge assumptions, including the project owner's, when evidence supports it;
+- surface contradictions, weak evidence, risks, and better alternatives directly;
 - make ordinary reversible engineering decisions without repeatedly asking permission;
-- explain material disagreements and tradeoffs rather than hiding them behind agreeable language;
-- distinguish confidence from uncertainty and verification from inference;
-- preserve the owner's explicit stop conditions for business, architectural, destructive, merge, release, and publication decisions;
-- treat collaboration as shared problem-solving rather than task obedience.
+- distinguish verified facts from inference and uncertainty;
+- prefer boring, auditable, recoverable designs;
+- keep implementation, tests, documentation, and operational behavior consistent; and
+- respect the explicit stop conditions in the implementation playbook.
 
-A peer posture does not authorize bypassing the project's safety, financial-integrity, architectural, or owner-decision boundaries.
+Peer posture does not authorize destructive production actions, live charges, unapproved merges/releases, or silent architectural reversals.
 
 ## Read These First
 
-Before substantive project work, read these documents in order:
+Before substantive work:
 
 1. `doc/implementation-playbook.md`
 2. `doc/decisions.md`
 3. `doc/project-handoff.md`
 4. `doc/configuration.md`
-5. `doc/documentation.md`
-6. `doc/threat-model.md`
-7. `doc/evaluated-tools.md`
-8. `doc/reference-hosting-environment.md`
-9. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
-10. `doc/adr/ADR-001-single-plugin-architecture.md`
-11. `doc/adr/ADR-002-documentation-first-php-comments-and-generated-reference-docs.md`
-12. `doc/testing/preimplementation-mock-exercise.md`
-13. `doc/testing/e2e-stripe-sandbox.md`
-14. `README.md`
-15. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
+5. `doc/threat-model.md`
+6. `doc/documentation.md`
+7. `doc/testing/test-matrix.md`
+8. relevant ADRs discovered through `doc/decisions.md`
+9. `doc/testing/preimplementation-mock-exercise.md`
+10. `doc/testing/e2e-stripe-sandbox.md`
+11. `doc/reference-hosting-environment.md`
+12. `README.md`
+13. relevant CI/tooling/contribution files
 
-Use `doc/decisions.md` as the fast index of accepted and proposed ADR decisions.  It is intentionally concise and should help determine which ADRs are relevant to the task at hand.  It is not authoritative over the ADRs themselves: when implementing, reviewing, or interpreting a decision, read the referenced ADR in full.  If `doc/decisions.md` conflicts with an ADR, the ADR controls.
+`doc/decisions.md` is an index, not a substitute for ADRs.  If an index summary conflicts with an ADR, the ADR controls.
 
-When an ADR is added, accepted, superseded, deprecated, or materially revised, update `doc/decisions.md` in the same change so the index remains trustworthy.
+All current numbered ADRs (000–013) are Accepted as of 2026-09-04.
 
-Use `doc/configuration.md` as the current configuration contract.  Environment variables are primary, file-backed secret injection is preferred for sensitive containerized production values, and `.env` files are tertiary development/test convenience only.  Do not introduce a parallel configuration model or generic non-namespaced Stripe variables without documenting the change.
-
-Use `doc/documentation.md` as the normative PHP source-documentation standard.  It adapts the documentation-first Doxygen conventions used by `bootstrap` and `adrctl` to native PHPDoc/Doxygen syntax and to this project's financial-state and security responsibilities.  Do not substitute sparse framework-style PHPDoc when a method or helper owns consequential invariants, failure behavior, security assumptions, or side effects.
-
-Use `doc/threat-model.md` before implementing security-sensitive behavior, especially Stripe credential handling, Payment Link creation/recovery, reconciliation, cleanup, CLI commands, logging, test-only endpoint overrides, or release packaging.  Treat it as a living model: update it when implementation adds or materially changes a trust boundary, privilege, external interface, persistence mechanism, supported payment lifecycle, or distribution path.
-
-Use `doc/evaluated-tools.md` before reopening the original Harvest-replacement product comparison.  It records why Kimai was selected over alternatives such as Invoice Ninja, Miru, Dolibarr, SolidInvoice, and ERPNext.  Treat those conclusions as historical, not eternal: reconsider an alternative only when requirements or the product have materially changed, and verify current upstream facts before relying on the old comparison.
-
-Use `doc/reference-hosting-environment.md` for sanitized operational context.  It describes the dogfooding environment without hostnames, IP addresses, domain names, or credentials.  Do not encode Swarm, Traefik, NFS, Jenkins, or other local infrastructure choices as product requirements unless Kimai itself requires them.
-
-Do not infer missing project requirements from the original repository template.
-
-## Current Project State
-
-At the time this guidance was introduced, the repository was in the design/documentation stage.  There was no production Kimai plugin implementation in the repository.
-
-ADR-001 is `Proposed`, not `Accepted`.  The architecture has been researched and modeled, but it still requires a real Kimai plugin implementation and Stripe test-mode validation before acceptance.
-
-ADR-002 is `Proposed`.  Until its status changes, implementation work should nevertheless follow the documented source-comment standard when working on the proposed architecture so documentation and code do not begin life with different conventions.
-
-The historical mock exercise reported 103 passing synthetic cases.  Those cases are design evidence, not repository CI evidence.  Do not describe the project as having 103 executable tests until equivalent tests actually exist in the repository.
+The original large proposed ADR-001 is preserved under `doc/adr/rationale/`; its independent decisions now live in ADRs 005–011.
 
 ## Primary Goal
 
-Build a small Kimai plugin that connects Kimai invoices to Stripe without turning Kimai or this connector into a new billing platform.
+Build a small self-hosted Kimai plugin that connects Kimai invoices to Stripe Payment Links while keeping Kimai as invoice authority and Stripe as payment authority.
 
-The intended plugin has two independently disableable capabilities:
+Intended workflow:
 
-1. create or recover a Stripe Payment Link during real Kimai invoice generation and expose the link URL to the invoice renderer; and
-2. asynchronously reconcile sufficiently proven Stripe payments back into Kimai so the corresponding invoice can be marked paid.
+```text
+Kimai time/invoice
+-> connector creates or recovers exact Stripe Payment Link
+-> Kimai invoice exposes Stripe-hosted URL
+-> customer pays Stripe
+-> externally scheduled reconciliation proves exact payment
+-> Kimai invoice becomes paid
+```
 
-The current packaging direction is one plugin with internally separated responsibilities.  Two plugins remain a legitimate future alternative if lifecycle, security, dependency, user, or maintenance evidence justifies a split.
+The connector is optional.  Manual Payment Link creation and manual Kimai reconciliation remain permanent fallbacks.
 
-## Hard Architectural Constraints
+## Hard Architecture
 
-Treat the following as project requirements unless a later accepted ADR changes them:
+Unless a later Accepted ADR changes them:
 
-- Do not patch, fork, or modify Kimai core to implement the connector.
-- Use supported Kimai extension/plugin mechanisms.
-- Do not require public Internet ingress to Kimai.
-- Do not require Stripe webhooks.
-- Stripe should remain the public customer payment surface.
-- Outbound polling is acceptable.
-- The connector must be removable/disableable without preventing ordinary Kimai invoicing.
-- The manual Kimai + Stripe workflow is a permanent fallback.
-- Payment Link generation and payment reconciliation must be independently disableable.
-- Ambiguous financial evidence must result in no automatic Kimai accounting change.
-- False negatives are preferable to false positives in automatic paid-state reconciliation.
-- Do not automatically reverse a Kimai invoice from paid to unpaid/canceled merely because Stripe later reports a refund or dispute.
-- Do not treat a paid Stripe orphan as garbage.
-- Cleanup must retain data/payment surfaces when it cannot prove they are safe to deactivate.
-- Keep the plugin small and auditable.
-- Do not introduce a connector-specific payment ledger unless implementation evidence demonstrates a need.
-- Do not build queues, dashboards, webhook controllers, public callbacks, or generalized billing abstractions merely because they could be useful someday.
+- one plugin package contains two independently disableable capabilities;
+- use supported Kimai plugin mechanisms;
+- do not patch/fork/modify Kimai core or its root Composer state;
+- do not require public Internet ingress to Kimai;
+- do not require Stripe webhooks;
+- use Stripe Payment Links as the public customer payment surface;
+- Kimai remains authoritative for invoice/time/business state;
+- Stripe remains authoritative for payment movement and Stripe objects;
+- connector metadata/correlation is versioned and exact;
+- no connector-owned payment ledger/database without new evidence and an ADR;
+- ambiguity causes no automatic financial mutation;
+- false negatives are preferable to false-positive paid-state transitions;
+- refunds/disputes do not automatically rewrite historical Kimai paid state;
+- paid orphans are accounting exceptions, not cleanup garbage;
+- cleanup retains uncertainty;
+- design for retries/partial failures/container replacement; and
+- keep Payment Link and reconciliation responsibilities internally separate.
 
-## Authority Boundaries
+## Compatibility Baseline
 
-Kimai is authoritative for invoice identity, invoice amount/currency, invoice documents, time entries, and Kimai invoice state.
+ADR-004 establishes:
 
-Stripe is authoritative for Payment Links, Checkout Sessions, PaymentIntents, Charges, refunds, disputes, and actual payment movement.
+```text
+Kimai:            2.65.0
+PHP:              >=8.2 <8.6
+Stripe PHP SDK:   ^21.3.1
+Payment methods:  card only initially
+Money:            integer minor units
+Currency scope:   ordinary two-decimal currencies initially
+Metadata:         version 1
+Credential:       one least-privilege restricted key initially
+```
 
-The connector owns the correlation contract and the conservative decision procedure that decides whether Stripe evidence is sufficient to update Kimai.
+Do not broaden compatibility claims without executable evidence.
 
-Do not casually blur these boundaries.
+## Package / Plugin Model
+
+ADR-012 establishes a self-contained plugin:
+
+```text
+var/plugins/KimaiStripeConnectorBundle/
+```
+
+Namespace:
+
+```text
+KimaiPlugin\KimaiStripeConnectorBundle\
+```
+
+Production artifacts carry plugin-local Composer dependencies under `vendor/` and load that autoloader without modifying Kimai's root Composer files.
+
+Source control does not commit `vendor/`.
+
+## Configuration
+
+Follow `doc/configuration.md`.
+
+Environment namespace:
+
+```text
+KIMAI_STRIPE_CONNECTOR_*
+```
+
+Environment variables are primary.  File-backed secret injection is preferred for sensitive container values.  `.env` is tertiary local/dev/test convenience.
+
+Never log or commit Stripe API keys.
+
+## Testing Rule
+
+ADR-003 requires automated tests for executable behavior additions/changes/fixes/patches when reasonably testable.
+
+Behavioral examples requiring tests:
+
+- Stripe API request changes;
+- metadata changes;
+- configuration semantics;
+- money conversion;
+- Kimai event integration;
+- reconciliation/cleanup rules;
+- retry/error handling;
+- compatibility changes; and
+- bug fixes.
+
+Documentation-only, comment-only, typo, or formatting changes do not require artificial unit tests.
+
+Bug fixes SHOULD include regression tests.
+
+Use `doc/testing/test-matrix.md` to select the cheapest deterministic test layer.
+
+Historical “103 passing” scenarios are design evidence, not repository test results.  Do not claim they are executable tests until implemented.
+
+## Disposable E2E
+
+Use `tests/e2e/` for real Kimai integration/E2E.
+
+The Kimai environment is ephemeral by design:
+
+```text
+construct fresh Compose project and volumes
+-> start Kimai 2.65.0 + MySQL
+-> install plugin
+-> reload/verify
+-> remove plugin
+-> reload/verify
+-> docker compose down --volumes --remove-orphans
+```
+
+Do not repurpose the long-lived dogfooding Kimai environment as the test fixture.
+
+Real Stripe sandbox tests will reuse this disposable Kimai environment when authorized sandbox credentials are available.
+
+## Financial-State Rules
+
+Automatic initial reconciliation direction:
+
+```text
+Kimai not paid
++ exact versioned identity
++ exact amount
++ exact currency
++ strong mutually consistent Stripe evidence
+-> Kimai paid
+```
+
+A completed Checkout Session alone is insufficient universal proof.
+
+Ambiguous evidence => no mutation.
+
+Post-payment refund/dispute => manual/accounting review, not automatic paid-state reversal.
 
 ## Failure Philosophy
 
-The connector cannot make Stripe object creation and Kimai invoice persistence one atomic distributed transaction.  The architecture therefore favors idempotency, durable correlation, recovery, and conservative cleanup rather than pretending atomicity exists.
+Stripe and Kimai do not share one transaction.
 
-Important examples:
+Expected conditions include Stripe commit followed by lost response and Stripe creation followed by Kimai persistence failure.
 
-- Stripe may create a Payment Link before Kimai invoice rendering/persistence later fails.
-- A retry should recover/reuse an exact compatible link rather than blindly creating another one.
-- A same-identity amount/currency conflict should stop automation and require human resolution.
-- A Stripe timeout may mean the remote operation committed and the response was lost.
-- A reconciliation outage should leave Kimai temporarily stale, not corrupt.
-- A cleanup outage should leave extra Stripe objects, not destroy uncertain ones.
+Use:
 
-## Documentation Philosophy
+- Stripe idempotency where appropriate;
+- durable versioned metadata for rediscovery;
+- exact compatible-link reuse;
+- conflict detection;
+- fail-closed ambiguity; and
+- conservative cleanup.
 
-For architecture, security, reconciliation logic, compatibility, financial-state behavior, and source implementation contracts, more documentation is preferred to premature compression.
+Do not solve expected partial failures by adding a speculative ledger or queue.
 
-Capture:
+## Operator Result Vocabulary
 
-- reasoning;
-- assumptions;
-- upstream facts and versions;
-- rejected alternatives;
-- failure modes;
-- test evidence;
-- uncertainty;
-- migration concerns;
-- operational fallback;
-- what would cause a decision to be revisited.
+ADR-013 defines:
 
-The project owner explicitly prefers preserving context now and distilling later.
+```text
+SUCCESS
+NO_CHANGE
+RETRYABLE
+CONFIGURATION_ERROR
+CONFLICT
+MANUAL_REVIEW_REQUIRED
+INTERNAL_ERROR
+```
 
-When making or materially changing an architectural decision, update or add an ADR rather than allowing the decision to live only in code or a PR conversation.  Then update `doc/decisions.md` with the current status, concise decision summary, and source reference.
+Use these meanings consistently across CLI output, logs, tests, and runbooks.
 
-When changing configuration semantics, update `doc/configuration.md` and associated configuration tests.
+## Documentation
 
-When introducing or changing a security boundary, credential scope, external interface, destructive operation, persistence mechanism, or release path, update `doc/threat-model.md` and the associated abuse/security test backlog.
+ADR-002 and `doc/documentation.md` govern source comments.
 
-When changing autonomous execution order, stop conditions, or phase expectations, update `doc/implementation-playbook.md`.
+PHP uses Doxygen-compatible PHPDoc.  Document intent, invariants, assumptions, security boundaries, side effects, failures, and ownership where relevant rather than restating syntax.
 
-Distinguish facts, design decisions, inferences, synthetic evidence, and unresolved questions.
+Generated Doxygen output lives under ignored `doc/reference/`.
 
-### Source Documentation Standards
+Doxygen warnings are failures.
 
-Follow `doc/documentation.md` and ADR-002 for maintained PHP source.
+When changing architecture/config/security/testing/package/current-state behavior, update the corresponding repository documentation in the same coherent change.
 
-Use Doxygen-compatible PHPDoc blocks where applicable for files/modules, public classes/interfaces/traits/enums, public methods/functions, non-trivial private/protected helpers, important properties/constants, configuration boundaries, value objects, validation guards, and safety-sensitive behavior.
+## Repository Quality Gates
 
-Use PHP-native declarations as the authoritative type shape.  Documentation should add semantic information rather than restating types.
+MegaLinter is blocking.
 
-Applicable documentation should explain purpose, parameters, return semantics, exceptions, preconditions, assumptions, invariants, side effects, ownership, failure modes, security considerations, idempotency, concurrency, compatibility, non-goals, and realistic examples when those details materially improve understanding.
+Required policy:
 
-Use the Doxygen concepts established by the sibling repositories in a PHP-appropriate form, including `@file`, `@brief`, `@details`, `@param`, `@return`, `@retval`, `@throws`, `@var`, `@see`, `@deprecated`, `@todo`, `@par`, and `@code` / `@endcode` where applicable.  Do not add redundant synthetic `@fn` declarations to normal PHP methods merely to mimic Bash source.
+```text
+DISABLE_ERRORS: false
+APPLY_FIXES: false
+```
 
-Financial-state, correlation, reconciliation, cleanup, and credential-handling code should receive especially explicit documentation because its safety properties cannot be judged from signatures alone.
+A green workflow is not enough if its report contains warnings.  Required completion state is zero MegaLinter errors and zero MegaLinter warnings.
 
-Documentation-only source work must preserve executable behavior.  Do not opportunistically refactor code while documenting it.  If intent cannot be established from repository evidence, add a specific `@todo` that identifies the uncertainty rather than inventing rationale.
+The repository also includes PHP matrix CI, disposable Kimai E2E, documentation generation, pre-commit checks, Dependabot, and semver/release automation.
 
-Generated Doxygen HTML lives under `doc/reference/`, is ignored by Git, and is never edited manually.  Run `make docs` after changing relevant PHP source documentation.  The documentation workflow is expected to fail on Doxygen documentation warnings once PHP source exists; do not hide or downgrade warnings merely to obtain a green check.
-
-Documentation roles remain distinct:
-
-- README: human-facing orientation and use;
-- AGENTS: contributor/agent operating guidance;
-- ADRs: durable architectural rationale and history;
-- `doc/decisions.md`: ADR discovery/index;
-- `doc/connector-spec.md`: current public behavior once established;
-- `doc/configuration.md`: configuration contract;
-- `doc/threat-model.md`: security model;
-- `doc/testing/`: test strategy and evidence;
-- `doc/documentation.md`: source-documentation requirements;
-- PHP source comments: implementation contracts;
-- `doc/reference/`: generated Doxygen reference output; and
-- `doc/project-handoff.md`: cross-session continuity.
-
-Do not use source comments or tests as substitutes for updating a public behavioral specification once one exists.
-
-## Testing Philosophy
-
-Use the historical mock exercise as a test backlog, not as proof.
-
-High-risk behavior should be represented by executable tests before release, especially:
-
-- preview suppression;
-- money/currency normalization;
-- stable identity and metadata;
-- idempotent Payment Link creation/recovery;
-- timeout-after-commit recovery;
-- concurrency;
-- amount/currency conflicts;
-- exact reconciliation evidence;
-- partial/unpaid/processing states;
-- refunds and disputes;
-- paid orphan handling;
-- conservative cleanup;
-- Kimai persistence failure;
-- plugin disable/manual fallback;
-- real Stripe test-mode payment behavior;
-- configuration contradiction/secret-source tests;
-- threat-model abuse cases.
-
-Prefer adversarial and failure-path tests over happy-path-only coverage.
-
-## Security Philosophy
-
-The plugin will handle a Stripe credential and can change Kimai invoice paid state.  Treat this as a meaningful trust boundary.
-
-- Prefer Stripe restricted keys if the required API operations can be represented safely.
-- Never log Stripe secret keys.
-- Do not expose secrets to Twig templates, invoice documents, metadata, CLI output, or exception messages intentionally.
-- Pay attention to container/entrypoint logging.  The reference Kimai deployment exposed environment values through shell tracing (`set -x`), so an environment variable is not automatically log-safe.
-- Keep public ingress unnecessary.
-- Fail closed on financial ambiguity.
-- Treat cleanup as destructive and therefore conservative.
-- Treat configuration integrity as security-sensitive.
-- Preserve the manual fallback during incidents and compatibility failures.
-
-## Repository Conventions
-
-The repository was created from a general template and includes MegaLinter, pre-commit, CodeQL, OpenSSF Scorecard, Dependabot, Conventional Commit/versioning automation, issue templates, and other scaffold files.
-
-Use Conventional Commit messages.
-
-Follow `.editorconfig`, `.markdownlint.json`, `.yamllint.yaml`, `.pre-commit-config.yaml`, and repository automation where applicable.
-
-MegaLinter is a blocking quality gate.  `DISABLE_ERRORS` and `APPLY_FIXES` must remain false unless the project owner explicitly changes that policy.  A MegaLinter run is considered clean only when it completes successfully with zero reported errors and zero reported warnings.  Do not treat a green workflow status alone as sufficient evidence if the report or log contains warnings.  Fix the underlying issue and rerun the workflow; do not rely on automatic source modification to make the branch pass.
-
-The pre-commit configuration intentionally rejects committed `.env` files and scans for secrets.
-
-Do not assume every scaffold file is already correct for this project.  Some are demonstrably template residue and are listed in `doc/project-handoff.md`.
-
-## Licensing Warning
-
-The repository currently contains a CC0 `LICENSE` and `CONTRIBUTING.md` language inherited from the template.  The project has discussed open-source distribution, but the final plugin license has **not** been decided.
-
-Do not treat CC0 as a consciously finalized plugin-license decision merely because it is currently present in the scaffold.  Do not make licensing claims on behalf of the project without resolving this explicitly.  Licensing should be settled before public implementation contributions or a public release create avoidable ambiguity.
+Do not weaken checks merely to obtain green status.
 
 ## Scope Warning
 
-If a proposed change begins to add any of the following, stop and reconsider scope before implementing:
+Stop and reconsider before introducing:
 
-- subscriptions;
-- recurring billing;
-- tax computation or filing;
+- subscriptions/recurring billing;
+- tax computation/filing;
+- dunning/late fees;
 - generalized bookkeeping;
 - customer accounting ledgers;
-- partial-payment accounting;
-- dunning or late-fee workflows;
 - automatic refund initiation/accounting;
 - automated dispute handling;
 - a Stripe dashboard inside Kimai;
 - payment credential collection inside Kimai;
-- mandatory webhooks/public routes;
+- mandatory public ingress/webhooks; or
 - arbitrary payment-processor abstraction without a demonstrated requirement.
 
-A new ADR is normally appropriate before materially expanding into these areas.
+Material expansion normally requires a new ADR.
+
+## License Boundary
+
+The repository is currently private.  Final public OSS licensing is not an immediate implementation blocker.
+
+Do not make the repository public, publish a public release, or invite public contributions while silently assuming the inherited template license is the final deliberate software-license decision.
 
 ## Handoff Rule
 
-When ending a substantial design or implementation session, update `doc/project-handoff.md` if the next session would otherwise need conversational history to understand:
+Before ending substantial work, update `doc/project-handoff.md` whenever the next session would otherwise need chat history to understand current branch/PR state, implementation progress, failed experiments, version-sensitive findings, verification, uncertainty, or next work.
 
-- what changed;
-- what is currently believed/decided;
-- what remains uncertain;
-- what was tested;
-- what failed;
-- what should happen next.
-
-If the session changed an architectural decision or ADR status, update `doc/decisions.md` as well.
-
-If the session changed configuration behavior, update `doc/configuration.md`.
-
-If the session changed a trust boundary, privilege, destructive action, external interface, persistence layer, supported payment lifecycle, or distribution path, update `doc/threat-model.md`.
-
-If the session changed the execution sequence or autonomy/stop-condition policy, update `doc/implementation-playbook.md`.
-
-If the session changed source-documentation expectations or Doxygen generation, update `doc/documentation.md`, ADR-002 as appropriate, and the documentation workflow/tooling in the same coherent change.
-
-The repository should be sufficient context for a new chat/session without relying on memory from an earlier conversation.
+Update `doc/decisions.md` with every ADR status/material change.

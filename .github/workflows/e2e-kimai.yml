@@ -31,8 +31,11 @@ jobs:
           coverage: none
           tools: composer:v2
 
+      - name: Validate Composer metadata
+        run: composer validate --strict
+
       - name: Install plugin dependencies
-        run: composer update --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist
 
       - name: Exercise disposable Kimai lifecycle
         run: bash tests/e2e/run.sh

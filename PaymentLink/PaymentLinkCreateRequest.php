@@ -26,8 +26,10 @@ final readonly class PaymentLinkCreateRequest
      * @details
      * Connector metadata is attached to the Payment Link and declaratively copied
      * onto generated PaymentIntents.  Stripe itself copies Payment Link metadata
-     * onto Checkout Sessions.  The deterministic idempotency key protects immediate
-     * retries, while durable metadata remains the longer-lived recovery mechanism.
+     * onto Checkout Sessions.  The completed-session limit reduces accidental
+     * duplicate payment through the same link.  The deterministic idempotency key
+     * protects immediate retries, while durable metadata remains the longer-lived
+     * recovery mechanism.
      */
     public static function fromInvoiceMetadata(InvoiceMetadata $metadata): self
     {
@@ -42,7 +44,8 @@ final readonly class PaymentLinkCreateRequest
      *     }},
      *     metadata: array<string, string>,
      *     payment_intent_data: array{metadata: array<string, string>},
-     *     payment_method_types: array{0: string}
+     *     payment_method_types: array{0: string},
+     *     restrictions: array{completed_sessions: array{limit: int}}
      * }
      */
     public function parameters(): array
@@ -67,6 +70,11 @@ final readonly class PaymentLinkCreateRequest
                 'metadata' => $stripeMetadata,
             ],
             'payment_method_types' => ['card'],
+            'restrictions' => [
+                'completed_sessions' => [
+                    'limit' => 1,
+                ],
+            ],
         ];
     }
 

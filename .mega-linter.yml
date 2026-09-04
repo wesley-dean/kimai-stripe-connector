@@ -2,8 +2,7 @@
 # Don't use MegaLinter to test reports, generated artifacts, or Composer output.
 # Repository-level scanners do not all honor .gitignore, so vendor must also be
 # excluded explicitly even though file-oriented linters already ignore it.
-ADDITIONAL_EXCLUDED_DIRECTORIES:
-  [report, megalinter-reports, .git, site, vendor]
+ADDITIONAL_EXCLUDED_DIRECTORIES: [report, megalinter-reports, .git, site, vendor]
 
 # Don't scan files listed in .gitignore (vendor, build output, generated docs, etc.).
 IGNORE_GITIGNORED_FILES: true

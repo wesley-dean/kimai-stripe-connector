@@ -86,15 +86,15 @@ The Kimai portion of every E2E run is ephemeral and is constructed/destroyed by
 The Phase 2 implementation adds executable unit coverage before any real Stripe
 mutation exists.
 
-| Area                  | Repository tests                                              | Current evidence                                                                 |
-|-----------------------|---------------------------------------------------------------|----------------------------------------------------------------------------------|
-| Configuration         | `ConfigurationTest`                                           | CFG-001..010 unit behavior implemented; safe-context support for CFG-011/012      |
-| Stable identity       | `KimaiInstanceIdTest`, `ConfigurationTest`, `MetadataTest`    | Canonical non-nil UUID validation and lowercase metadata identity                |
-| Money                 | `MoneyTest`                                                   | MNY-001..008 policy represented by exact conversion and fail-closed cases         |
-| Metadata              | `MetadataTest`                                                | Version-1 write/parse validation, unknown-version rejection, Stripe value bounds |
-| Secret safety         | `SecretRedactorTest`, `ConfigurationTest`                     | Known-secret redaction and credential-free safe configuration context            |
-| Operator results      | `OperatorResultTest`                                          | ADR-013 category identifiers and success/no-change semantics                      |
-| Stripe client factory | `StripeClientFactoryTest`                                     | Restricted credential reaches SDK client; SDK API version is not overridden      |
+| Area                  | Repository tests                                           | Current evidence                                                                 |
+|-----------------------|------------------------------------------------------------|----------------------------------------------------------------------------------|
+| Configuration         | `ConfigurationTest`                                        | CFG-001..010 and CFG-013 parser semantics; safe-context support for CFG-011/012   |
+| Stable identity       | `KimaiInstanceIdTest`, `ConfigurationTest`, `MetadataTest` | Canonical non-nil UUID validation and lowercase metadata identity                |
+| Money                 | `MoneyTest`                                                | MNY-001..008 exact conversion, fail-closed currency policy, Stripe amount bounds |
+| Metadata              | `MetadataTest`                                             | Version-1 write/parse validation, unknown-version rejection, Stripe value bounds |
+| Secret safety         | `SecretRedactorTest`, `ConfigurationTest`                  | Known-secret redaction and credential-free safe configuration context            |
+| Operator results      | `OperatorResultTest`                                       | ADR-013 category identifiers and success/no-change semantics                      |
+| Stripe client factory | `StripeClientFactoryTest`                                  | Restricted credential reaches SDK client; SDK API version is not overridden      |
 
 The Phase 2 Stripe client test constructs an SDK client only.  It makes no remote
 request and therefore requires no real Stripe credential.
@@ -107,7 +107,11 @@ The `CFG-*` scenarios from `doc/configuration.md` are primarily unit tests:
 |--------------|------------------|------------------------------------------------------------------------------------------------|
 | CFG-001..010 | Unit             | Implemented in Phase 2 unit tests                                                              |
 | CFG-011..012 | Unit/integration | Pure redaction/safe-context coverage exists; real Kimai startup/log inspection remains pending |
-| CFG-013      | Unit/integration | `.env` population equivalence remains an integration/development-environment check              |
+| CFG-013      | Unit/integration | Process-environment values are proven to use the same parser as an explicit environment map    |
+
+A `.env` file remains only one possible mechanism for populating process
+environment values.  The connector deliberately does not implement a second dotenv
+parser or precedence model.
 
 ## Historical Payment-Link Backlog
 
@@ -125,14 +129,15 @@ than replacing that record.
 
 ## Money Backlog
 
-| IDs          | Primary layer | Status / notes                                                                                  |
-|--------------|---------------|-------------------------------------------------------------------------------------------------|
-| MNY-001..008 | Unit          | Implemented in Phase 2 with exact text parsing, no float/rounding, and unsupported-currency fail |
+| IDs          | Primary layer | Status / notes                                                                                   |
+|--------------|---------------|--------------------------------------------------------------------------------------------------|
+| MNY-001..008 | Unit          | Implemented with exact text parsing, no float/rounding, fail-closed currencies, and Stripe bounds |
 
 Money conversion receives broad parameterized coverage because it is cheap and
 financially consequential.  The current implementation intentionally rejects zero
 and negative invoice amounts, zero-decimal currencies, Stripe special-case
-currencies, malformed precision, and values beyond the PHP integer range.
+currencies, malformed precision, and amounts greater than Stripe's eight-digit
+minor-unit limit.  The upper boundary itself is covered as a valid case.
 
 ## Reconciliation Backlog
 

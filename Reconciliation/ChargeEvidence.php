@@ -26,6 +26,7 @@ final readonly class ChargeEvidence
         private bool $refunded,
         private bool $disputed,
         private int $amount,
+        private int $amountCaptured,
         private int $amountRefunded,
         private string $currency,
         private string $paymentIntentId,
@@ -36,7 +37,7 @@ final readonly class ChargeEvidence
             }
         }
 
-        if ($amount < 0 || $amountRefunded < 0) {
+        if ($amount < 0 || $amountCaptured < 0 || $amountRefunded < 0) {
             throw new InvalidArgumentException('Charge amounts must not be negative.');
         }
     }
@@ -69,6 +70,11 @@ final readonly class ChargeEvidence
     public function amount(): int
     {
         return $this->amount;
+    }
+
+    public function amountCaptured(): int
+    {
+        return $this->amountCaptured;
     }
 
     public function amountRefunded(): int

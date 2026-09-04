@@ -13,16 +13,25 @@ GENERATE_MAN           = NO
 GENERATE_RTF           = NO
 GENERATE_XML           = NO
 
-INPUT                  = src
+# The package structure is not finalized yet.  Scan the repository for PHP files
+# so documentation generation succeeds before src/ exists; narrow this input when
+# the maintained package layout becomes an explicit project contract.
+INPUT                  = .
 RECURSIVE              = YES
 FILE_PATTERNS          = *.php
 
-EXCLUDE                = vendor \
+EXCLUDE                = .git \
+                         .github \
+                         doc \
+                         vendor \
                          tests \
-                         doc/reference
-EXCLUDE_PATTERNS       = */vendor/* \
+                         dist
+EXCLUDE_PATTERNS       = */.git/* \
+                         */.github/* \
+                         */doc/* \
+                         */vendor/* \
                          */tests/* \
-                         */doc/reference/*
+                         */dist/*
 
 EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = YES

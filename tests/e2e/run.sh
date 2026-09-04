@@ -131,10 +131,10 @@ require "/opt/kimai/vendor/autoload.php";
 exit(class_exists("KimaiPlugin\\KimaiStripeConnectorBundle\\KimaiStripeConnectorBundle") ? 0 : 1);
 '
 
-# Run the real Phase 4 command through Kimai's production service container while
+# Run the real operator commands through Kimai's production service container while
 # the connector is disabled by default. This proves command registration and
 # autowiring of the Kimai repository/service dependencies without requiring a
-# Stripe credential or performing any Stripe access or financial mutation.
+# Stripe credential or performing Stripe access or financial mutation.
 reconciliation_output="$(
   compose exec --no-TTY kimai \
     "${KIMAI_CONSOLE}" kimai:stripe:reconcile --dry-run --env=prod
@@ -142,6 +142,16 @@ reconciliation_output="$(
 if [[ "${reconciliation_output}" != *"[NO_CHANGE]"* ]]; then
   echo "error: disabled reconciliation command did not report NO_CHANGE" >&2
   printf '%s\n' "${reconciliation_output}" >&2
+  exit 1
+fi
+
+cleanup_output="$(
+  compose exec --no-TTY kimai \
+    "${KIMAI_CONSOLE}" kimai:stripe:cleanup --dry-run --env=prod
+)"
+if [[ "${cleanup_output}" != *"[NO_CHANGE]"* ]]; then
+  echo "error: disabled cleanup command did not report NO_CHANGE" >&2
+  printf '%s\n' "${cleanup_output}" >&2
   exit 1
 fi
 

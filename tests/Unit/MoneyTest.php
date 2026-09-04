@@ -28,6 +28,7 @@ final class MoneyTest extends TestCase
         yield 'two decimal places' => ['875.10', 'usd', 87510];
         yield 'one cent boundary' => ['0.01', 'eur', 1];
         yield 'leading fractional zero' => ['12.05', 'gbp', 1205];
+        yield 'Stripe eight-digit maximum' => ['999999.99', 'usd', Money::MAX_MINOR_UNITS];
     }
 
     #[DataProvider('invalidAmountProvider')]
@@ -51,6 +52,7 @@ final class MoneyTest extends TestCase
         yield 'comma grouping' => ['1,000.00'];
         yield 'leading whitespace' => [' 1.00'];
         yield 'trailing whitespace' => ['1.00 '];
+        yield 'one cent beyond Stripe maximum' => ['1000000.00'];
         yield 'huge amount' => ['999999999999999999999999999999999999.99'];
     }
 
@@ -75,11 +77,18 @@ final class MoneyTest extends TestCase
         yield 'malformed code' => ['us'];
     }
 
-    public function testMinorUnitConstructionUsesSameCurrencyPolicy(): void
+    public function testMinorUnitConstructionUsesSameCurrencyAndAmountPolicy(): void
     {
         $money = Money::fromMinorUnits(12345, 'CAD');
 
         self::assertSame(12345, $money->minorUnits());
         self::assertSame('cad', $money->currency()->value());
+    }
+
+    public function testMinorUnitConstructionRejectsStripeOverflow(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Money::fromMinorUnits(Money::MAX_MINOR_UNITS + 1, 'usd');
     }
 }

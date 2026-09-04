@@ -28,6 +28,8 @@ E2E_DATABASE_URL+="://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
 E2E_DATABASE_URL+="?charset=${DB_CHARSET}&serverVersion=${DB_SERVER_VERSION}"
 export E2E_DATABASE_URL
 
+PLUGIN_STAGE=""
+
 compose() {
   docker compose --project-name "${PROJECT_NAME}" --file "${COMPOSE_FILE}" "$@"
 }
@@ -38,7 +40,7 @@ diagnostics() {
   echo "E2E environment failed; preserving diagnostics before teardown." >&2
   compose ps >&2 || true
 
-  kimai_container="$(compose ps --quiet kimai 2>/dev/null || true)"
+  kimai_container="$(compose ps --quiet kimai 2> /dev/null || true)"
   if [[ -n "${kimai_container}" ]]; then
     echo "Kimai container health state:" >&2
     docker inspect --format '{{json .State.Health}}' "${kimai_container}" >&2 || true
@@ -49,6 +51,10 @@ diagnostics() {
 }
 
 cleanup() {
+  if [[ -n "${PLUGIN_STAGE}" && -d "${PLUGIN_STAGE}" ]]; then
+    rm -rf "${PLUGIN_STAGE}"
+  fi
+
   compose down --volumes --remove-orphans > /dev/null 2>&1 || true
 }
 
@@ -67,19 +73,51 @@ trap on_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-if [[ ! -f "${REPOSITORY_ROOT}/vendor/autoload.php" ]]; then
-  echo "error: plugin-local Composer dependencies are missing; run composer install first" >&2
+if ! command -v composer > /dev/null 2>&1; then
+  echo "error: composer is required to stage plugin runtime dependencies" >&2
   exit 1
 fi
 
 cleanup
 
+PLUGIN_STAGE="$(mktemp -d)"
+readonly PLUGIN_STAGE
+
+# Build an isolated plugin tree with the production dependency graph from the
+# committed lockfile. The developer checkout may contain PHPUnit, PHPStan,
+# Symfony, or other require-dev packages under vendor/; copying that tree into
+# Kimai would test a development workspace rather than the self-contained runtime
+# artifact required by ADR-012 and can collide with Kimai's own dependencies.
+(
+  cd "${REPOSITORY_ROOT}"
+  tar \
+    --exclude='./.git' \
+    --exclude='./vendor' \
+    --exclude='./build' \
+    --exclude='./coverage' \
+    --exclude='./dist' \
+    --exclude='./doc/reference' \
+    -cf - .
+) | tar -C "${PLUGIN_STAGE}" -xf -
+
+composer install \
+  --working-dir="${PLUGIN_STAGE}" \
+  --no-dev \
+  --no-interaction \
+  --prefer-dist \
+  --optimize-autoloader
+
+if [[ ! -f "${PLUGIN_STAGE}/vendor/autoload.php" ]]; then
+  echo "error: staged plugin runtime dependencies are missing" >&2
+  exit 1
+fi
+
 compose up --detach --wait --wait-timeout 240
 
-# Install the repository exactly where Kimai expects a normal plugin. The named
+# Install the staged plugin exactly where Kimai expects a normal plugin. The named
 # plugin volume belongs only to this Compose project and is destroyed by cleanup.
 compose exec --user root --no-TTY kimai mkdir -p "${PLUGIN_PATH}"
-compose cp "${REPOSITORY_ROOT}/." "kimai:${PLUGIN_PATH}"
+compose cp "${PLUGIN_STAGE}/." "kimai:${PLUGIN_PATH}"
 compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:reload --env=prod
 
 compose exec --no-TTY kimai php -r '
@@ -99,5 +137,5 @@ require "/opt/kimai/vendor/autoload.php";
 exit(class_exists("KimaiPlugin\\KimaiStripeConnectorBundle\\KimaiStripeConnectorBundle") ? 1 : 0);
 '
 
-# cleanup runs through the EXIT trap and removes containers, networks, and all
-# named volumes, including the test database and installed-plugin volume.
+# cleanup runs through the EXIT trap and removes containers, networks, the staging
+# directory, and all named volumes, including the test database and plugin volume.

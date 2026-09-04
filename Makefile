@@ -1,6 +1,61 @@
-.PHONY: docs docs-clean
+.PHONY: analyse check docs docs-clean e2e format format-check lint test
 
 REFERENCE_DOC_DIR := doc/reference
+
+## @brief Run the PHPUnit test suite.
+test:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to run tests' >&2; \
+		exit 1; \
+	}
+	composer test
+
+## @brief Run PHPStan static analysis.
+analyse:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to run static analysis' >&2; \
+		exit 1; \
+	}
+	composer analyse
+
+## @brief Check PHP source against the configured PHPCS standard.
+lint:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to run PHP coding-standard checks' >&2; \
+		exit 1; \
+	}
+	composer lint
+
+## @brief Verify PHP-CS-Fixer would make no formatting changes.
+format-check:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to run PHP formatting checks' >&2; \
+		exit 1; \
+	}
+	composer format:check
+
+## @brief Apply the project PHP-CS-Fixer rules locally.
+##
+## This is an explicit developer command.  CI and MegaLinter do not apply fixes
+## automatically.
+format:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to format PHP source' >&2; \
+		exit 1; \
+	}
+	composer format
+
+## @brief Run the ordinary local PHP validation suite.
+check:
+	@command -v composer >/dev/null 2>&1 || { \
+		echo 'error: composer is required to run PHP validation' >&2; \
+		exit 1; \
+	}
+	composer check
+
+## @brief Run the disposable Kimai plugin-lifecycle E2E exercise.
+e2e:
+	bash tests/e2e/run.sh
 
 ## @brief Generate Doxygen reference documentation from maintained PHP source.
 ##

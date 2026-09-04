@@ -1,193 +1,274 @@
 # Kimai Stripe Connector
 
-`kimai-stripe-connector` is a proposed small Kimai plugin that connects Kimai invoices to Stripe Payment Links while keeping Kimai as the invoice system and Stripe as the payment processor.
+`kimai-stripe-connector` is a small Kimai plugin that connects Kimai invoices to Stripe Payment Links while keeping Kimai as the invoice system and Stripe as the payment processor.
 
-The intended workflow is:
+Intended workflow:
 
 ```text
 track time in Kimai
 -> generate invoice
--> connector creates or recovers Stripe Payment Link
+-> connector creates or recovers exact Stripe Payment Link
 -> invoice contains Stripe-hosted payment URL
 -> customer pays Stripe
--> asynchronous reconciliation verifies payment
--> Kimai invoice is marked paid
+-> asynchronous reconciliation proves the exact payment
+-> Kimai invoice becomes paid
 ```
 
-The connector is deliberately designed so Kimai does not need public Internet ingress and Stripe webhooks are not required.
+Kimai does not need public Internet ingress and Stripe webhooks are not required.
 
 ## Project Status
 
-The project is currently in the design/documentation stage.  There is not yet a production plugin implementation in this repository.
+Architecture and implementation-preparation decisions are Accepted.
 
-The proposed architecture is one plugin with two independently disableable capabilities:
+The repository now contains:
 
-1. Payment Link generation/recovery and invoice rendering support.
-2. Conservative Stripe-to-Kimai payment reconciliation.
+- an inert installable Kimai plugin bundle skeleton;
+- PHP/Composer package metadata and a committed minimum-PHP-resolved `composer.lock`;
+- PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer project-local tooling;
+- PHP 8.2–8.5 CI using the same locked dependency graph;
+- a disposable Kimai 2.65.0 + MySQL plugin-lifecycle E2E harness;
+- PHP-aware MegaLinter configuration with auto-fixes disabled;
+- Doxygen/PHPDoc source-documentation standards and generated reference tooling;
+- Accepted ADRs for architecture, compatibility, testing, payment behavior, packaging, recovery, cleanup, and operator results; and
+- detailed design/testing/threat/configuration/handoff documentation.
 
-The main architecture decision is currently **Proposed**, not Accepted.  Acceptance requires a real Kimai plugin implementation and Stripe test-mode validation.
+No production Stripe Payment Link creation or reconciliation logic has been implemented yet.
 
 ## Start Here
 
-For a fresh implementation session, begin with [`doc/implementation-playbook.md`](doc/implementation-playbook.md).  It is the primary execution guide and is intentionally written so a human or AI/LLM development session can be told to read it and proceed with ordinary reversible work until it reaches a documented stop condition.
+For a fresh implementation session, begin with:
 
-A minimal handoff instruction can therefore be:
+[`doc/implementation-playbook.md`](doc/implementation-playbook.md)
 
-> Inspect this repository, read `doc/implementation-playbook.md`, and follow it.  Make reasonable reversible engineering decisions autonomously, keep the repository documentation synchronized with the work, and do not merge or release anything without explicit approval.
+A minimal instruction is:
 
-The playbook then directs the session through the supporting documents below.
+> Inspect this repository, read `doc/implementation-playbook.md`, and follow it.  Work as a trusted engineering peer, make ordinary reversible decisions autonomously, keep tests and documentation synchronized, and do not merge or release without explicit approval.
 
-Humans and AI/LLM development tools should read these documents before substantive implementation work:
+The playbook directs the session through the supporting documentation.
+
+High-value entry points:
 
 1. [`AGENTS.md`](AGENTS.md)
 2. [`Implementation Playbook`](doc/implementation-playbook.md)
-3. [`doc/decisions.md`](doc/decisions.md)
-4. [`doc/project-handoff.md`](doc/project-handoff.md)
+3. [`Decision Index`](doc/decisions.md)
+4. [`Project Handoff`](doc/project-handoff.md)
 5. [`Configuration Model`](doc/configuration.md)
-6. [`Source Documentation Standard`](doc/documentation.md)
-7. [`Threat Model`](doc/threat-model.md)
-8. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
-9. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
-10. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
-11. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
-12. [`ADR-002: Use Documentation-First PHP Source Comments and Generated Reference Docs`](doc/adr/ADR-002-documentation-first-php-comments-and-generated-reference-docs.md)
-13. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
-14. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
+6. [`Threat Model`](doc/threat-model.md)
+7. [`Documentation Standard`](doc/documentation.md)
+8. [`Test Architecture and Coverage Matrix`](doc/testing/test-matrix.md)
+9. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
+10. [`Pre-Implementation Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+11. [`Stripe Sandbox E2E Strategy`](doc/testing/e2e-stripe-sandbox.md)
+12. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
 
-The handoff document records the project history, hard constraints, current decisions, reference environment, unresolved questions, known template residue, and recommended next work so a new development session does not need access to earlier conversations.
+## Architecture Decisions
 
-[`doc/configuration.md`](doc/configuration.md) defines the connector's configuration contract.  Namespaced environment variables are the primary interface, file-backed secret injection is preferred for sensitive values in containerized production, and `.env` files are only a tertiary development/test convenience rather than a separate configuration system.
+ADRs live under `doc/adr/`, and `doc/decisions.md` is the fast discovery index.
 
-[`doc/documentation.md`](doc/documentation.md) defines the PHP source-documentation contract.  It adapts the documentation-first Doxygen conventions used by `bootstrap` and `adrctl` to native PHPDoc/Doxygen syntax and to this project's payment, security, idempotency, cleanup, and failure-mode responsibilities.
+All current numbered ADRs are Accepted as of 2026-09-04.
 
-[`doc/threat-model.md`](doc/threat-model.md) is the living architecture threat model.  It captures assets, trust boundaries, attack scenarios, controls, residual risks, open security questions, and a proposed abuse/security test backlog.  Revisit it when implementation details, Stripe permissions, supported payment methods, public interfaces, persistence, or packaging materially change.
+The original ADR-001 became too broad during architecture exploration.  Its full proposed rationale is preserved under:
 
-[`doc/reference-hosting-environment.md`](doc/reference-hosting-environment.md) describes the sanitized dogfooding/runtime environment: container orchestration, reverse proxy, external databases, NFS-backed persistence, scheduling, private-network posture, and outbound Stripe connectivity.  It intentionally omits hostnames, IP addresses, domain names, credentials, and other site-specific identifiers.  Treat it as operational context, not as a portability requirement for the plugin.
+```text
+doc/adr/rationale/ADR-001-proposed-rationale.md
+```
 
-[`doc/evaluated-tools.md`](doc/evaluated-tools.md) preserves the Harvest-replacement comparison that led to Kimai.  Consult it before reopening previously rejected products such as Invoice Ninja, Miru, Dolibarr, SolidInvoice, or ERPNext.  Those decisions are historical rather than permanent: reconsider a tool when project requirements or the product have materially changed, and verify current upstream facts before relying on the older evaluation.
+Current independent decisions are split into focused ADRs, including:
 
-### Decision index
+- one plugin / two independently disableable capabilities;
+- tests for behavioral changes;
+- initial compatibility/Stripe contract;
+- private Kimai/outbound-only integration;
+- supported Kimai extension seams;
+- Stripe Payment Links;
+- versioned metadata correlation;
+- conservative reconciliation;
+- conservative orphan cleanup;
+- idempotent partial-failure recovery;
+- self-contained plugin packaging; and
+- stable operator result categories.
 
-[`doc/decisions.md`](doc/decisions.md) is the fast-reference index for project ADRs.  It summarizes each ADR decision in a few sentences, records its current status, and links back to the source ADR.
-
-Use the decision index to discover which decisions matter to the task at hand.  Do **not** use it as a replacement for the ADRs when implementing or interpreting architecture.  The full ADR contains the rationale, alternatives, constraints, failure modes, and nuance; if the summary ever conflicts with its ADR, the ADR is authoritative.
-
-When an ADR is added, accepted, superseded, deprecated, or materially changed, `doc/decisions.md` should be updated in the same change.
+Use the decision index to find the authoritative ADR rather than relying on this summary.
 
 ## Core Design Principles
 
-The current design intentionally preserves several boundaries:
+The connector preserves several important boundaries:
 
-- Kimai remains authoritative for invoice identity, invoice amount/currency, time records, invoice documents, and Kimai invoice state.
+- Kimai remains authoritative for invoice identity, amount/currency, time/business records, invoice documents, and Kimai invoice state.
 - Stripe remains authoritative for Payment Links, Checkout Sessions, PaymentIntents, Charges, refunds, disputes, and actual payment movement.
-- The connector correlates the two systems rather than creating a third payment ledger.
+- The connector correlates the systems rather than creating a third payment ledger.
 - Kimai core is not patched or forked.
 - Kimai does not require public ingress.
 - Stripe webhooks are not required.
-- Manual Stripe Payment Link creation and manual Kimai payment reconciliation remain permanent fallbacks.
+- Payment Link creation and reconciliation are independently disableable.
+- Manual Payment Link creation and manual Kimai reconciliation remain permanent fallbacks.
 - Ambiguous financial state fails closed.
 - False negatives are preferred to false-positive paid-state transitions.
 - Paid Stripe orphans are accounting exceptions, not cleanup garbage.
-- Refunds/disputes do not automatically rewrite a previously paid Kimai invoice to unpaid.
+- Refunds/disputes do not automatically rewrite historical paid state.
 
-See ADR-001 for the full rationale, failure model, alternatives, and acceptance criteria.
+## Initial Compatibility Scope
 
-## Historical Mock Evidence
-
-Before repository implementation began, the architecture was exercised through synthetic/adversarial modeling.  The historical exercise reported:
+The current Accepted baseline is:
 
 ```text
-89 behavioral/adversarial cases passed
-5 HTTP/network/concurrency cases passed
-9 stateless correlation/recovery cases passed
-------------------------------------------
-103 total passed
+Kimai:             2.65.0
+PHP:               >=8.2 <8.6
+Stripe PHP SDK:    ^21.3.1
+Payment methods:   card only initially
+Money:             integer Stripe minor units
+Currencies:        ordinary two-decimal currencies initially
+Metadata version:  1
+Stripe credential: one least-privilege restricted key initially
 ```
 
-Additional probes included 100,000 cent-value conversions, 10,000 unrelated Payment Links plus one exact match, and 20 simultaneous creation attempts converging on one logical Payment Link.
+`composer.lock` is resolved from the minimum supported PHP 8.2 environment and committed.  PHP 8.2, 8.3, 8.4, and 8.5 CI install that same graph.
 
-These are **historical design mocks**, not executable repository CI tests.  The original harness and raw output were not committed.  The full surviving record and proposed executable-test backlog are in [`doc/testing/preimplementation-mock-exercise.md`](doc/testing/preimplementation-mock-exercise.md).
+Compatibility claims must follow executable evidence.
+
+## Plugin Packaging
+
+The plugin installs as:
+
+```text
+var/plugins/KimaiStripeConnectorBundle/
+```
+
+with namespace:
+
+```text
+KimaiPlugin\KimaiStripeConnectorBundle\
+```
+
+The release/plugin artifact is self-contained and carries plugin-local Composer production dependencies rather than modifying Kimai's root Composer graph.
+
+Source control ignores the generated/local `vendor/` tree while committing the dependency lockfile.
+
+## Testing
+
+Behavior changes require appropriate tests under ADR-003.
+
+The repository separates test responsibilities:
+
+```text
+unit
+-> pure configuration/money/metadata/decision logic
+
+Kimai integration
+-> plugin/event/rendering/Kimai-state behavior
+
+controlled Stripe/network
+-> deterministic timeout/retry/race/failure behavior
+
+real Stripe sandbox E2E
+-> small number of high-value real API/Checkout proofs
+```
+
+See [`doc/testing/test-matrix.md`](doc/testing/test-matrix.md).
+
+### Disposable Kimai environment
+
+`tests/e2e/` contains a real Kimai lifecycle harness based closely on Kimai's documented Docker Compose deployment.
+
+Each run:
+
+```text
+creates fresh Compose project + named volumes
+-> starts Kimai 2.65.0 + MySQL
+-> stages plugin source with composer install --no-dev from composer.lock
+-> installs the production-shaped stage under var/plugins
+-> reloads and verifies Kimai
+-> removes plugin
+-> reloads and verifies Kimai again
+-> destroys containers, network, every named volume, and the local stage
+```
+
+The E2E harness intentionally does not copy a developer checkout's `vendor/` tree into Kimai.  That tree may contain PHPUnit, PHPStan, Symfony development packages, and other dependencies that are not part of the production plugin artifact and can collide with Kimai's own dependency graph.
+
+Cleanup is guaranteed through a shell trap using:
+
+```text
+docker compose down --volumes --remove-orphans
+```
+
+The long-lived dogfooding Kimai instance is not the E2E fixture.
+
+## Development Commands
+
+After Composer development dependencies are installed, the ordinary PHP commands are:
+
+```text
+make test
+make analyse
+make lint
+make format-check
+make check
+make docs
+make docs-clean
+```
+
+`make check` is the ordinary local PHP gate and runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer in check-only mode.
+
+`make format` applies the configured PHP-CS-Fixer rules explicitly.  CI and MegaLinter do not auto-fix source.
+
+`make e2e` is independent of the repository-root development `vendor/` tree.  It requires Docker with Compose and Composer on `PATH`, then stages its own production dependency graph from the committed lockfile.
+
+The generated Doxygen reference tree lives under ignored `doc/reference/`.
+
+## Quality Gates
+
+MegaLinter is blocking.
+
+Required policy:
+
+```text
+DISABLE_ERRORS: false
+APPLY_FIXES: false
+```
+
+A successful workflow is considered clean only when MegaLinter reports zero errors and zero warnings.
+
+The repository also runs:
+
+- PHP 8.2–8.5 against the committed lockfile with PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer;
+- disposable Kimai E2E; and
+- Doxygen generation with warnings treated as failures.
+
+Dependabot covers GitHub Actions and Composer dependencies.  Semver/release automation is intentionally retained during initial development; frequent patch releases are acceptable and useful for visible progress.
+
+CodeQL and OpenSSF Scorecard are not relied upon as blocking controls while this repository remains private.
+
+## Configuration
+
+Connector environment variables use:
+
+```text
+KIMAI_STRIPE_CONNECTOR_*
+```
+
+Environment variables are the primary configuration interface.  File-backed secret injection is preferred for sensitive production/container values.  `.env` support is tertiary local/dev/test convenience.
+
+See [`doc/configuration.md`](doc/configuration.md).
 
 ## Manual Fallback
 
-The connector must never become necessary to continue billing.
-
-The supported fallback remains:
+The connector must never become necessary to continue billing:
 
 ```text
 track time in Kimai
 -> generate invoice
 -> create Stripe Payment Link manually
--> place URL on or with invoice
+-> include URL
 -> send invoice
--> confirm payment in Stripe
--> mark Kimai invoice paid manually
+-> verify payment in Stripe
+-> mark invoice paid manually
 ```
-
-A connector or compatibility failure should therefore be recoverable by disabling/removing the plugin and continuing manually rather than requiring emergency application development.
-
-## Architecture Decision Records
-
-ADRs live under `doc/adr`, as configured by `.adr-dir`.
-
-The repository's ADR template intentionally prefers thorough documentation over premature compression.  Capture reasoning, alternatives, assumptions, failure modes, and uncertainty.  The documentation can be distilled later after implementation and operational experience establish what is durable.
-
-Keep [`doc/decisions.md`](doc/decisions.md) synchronized with the ADR set so humans and tools have a reliable compact index without sacrificing the full ADR record.
-
-## Source Documentation and Doxygen
-
-PHP implementation source follows the documentation-first standard in [`doc/documentation.md`](doc/documentation.md) and the proposed architectural decision in ADR-002.
-
-The standard preserves the information structure established by `bootstrap` and `adrctl` while using PHP-native syntax.  Applicable files, classes, interfaces, methods, helpers, properties, constants, configuration boundaries, and safety mechanisms should document purpose, inputs, return semantics, failures, invariants, side effects, security considerations, ownership, idempotency/concurrency behavior, and realistic examples where those details matter.
-
-Doxygen supports PHP directly, so the project does not need the Bash source filter used by the sibling projects.  The root [`Doxyfile`](Doxyfile) reads maintained PHP files and generates browsable HTML under:
-
-```text
-doc/reference/
-```
-
-That directory is generated build output and is ignored by Git.  Do not edit generated HTML manually.
-
-Once PHP source exists, local reference generation is:
-
-```text
-doxygen Doxyfile
-```
-
-The `Documentation` GitHub Actions workflow performs the same generation automatically and treats Doxygen documentation warnings as failures.  While the repository remains implementation-free, the workflow reports that generation is deferred instead of failing solely because no PHP source exists yet.
-
-A future GitHub Pages publication step can publish `doc/reference/` without committing generated HTML, matching the later documentation-output model used by `adrctl`.
-
-## Repository Automation
-
-This repository was created from a general project template and already includes tooling such as:
-
-- MegaLinter;
-- pre-commit hooks;
-- Gitleaks;
-- CodeQL;
-- OpenSSF Scorecard;
-- Dependabot;
-- Conventional Commit / automatic semver release automation;
-- issue and pull-request templates.
-
-Some template configuration is not yet tailored for a PHP/Composer Kimai plugin.  Known residue and recommended cleanup are documented in [`doc/project-handoff.md`](doc/project-handoff.md).
-
-Do not assume every scaffold file represents a deliberate connector-specific decision.
 
 ## License
 
-**License decision pending.**
+The repository is currently private.  The inherited CC0 material remains present while the final public/open-source software-license decision is deferred.
 
-The repository currently contains a CC0 `LICENSE` and CC0 contribution language inherited from the source project template.  Open-source distribution is desired, but the connector's final software license has not yet been explicitly decided.
-
-Do not interpret the current template license as a finalized architectural or project decision.  Licensing should be resolved before public implementation contributions or a public release.
-
-## Security
-
-The connector will handle Stripe API credentials and can change Kimai invoice paid state.  Least privilege, conservative financial decisions, secret-safe logging, and no unnecessary public ingress are core design concerns.
-
-See [`doc/threat-model.md`](doc/threat-model.md), [`doc/configuration.md`](doc/configuration.md), [`SECURITY.md`](SECURITY.md), ADR-001, and the project handoff for current security context.  The generic template security policy may require project-specific refinement before public release.
+That decision is not an immediate implementation blocker while the repository remains private, but it should be resolved before making the repository public or inviting public contributions/releases under an assumed license.
 
 ## Author
 

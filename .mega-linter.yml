@@ -1,18 +1,16 @@
 ---
-# don't use Mega-Linter to test the reports Mega-Linter created
-ADDITIONAL_EXCLUDED_DIRECTORIES: [report, megalinter-reports, .git, site, tests]
+# Don't use MegaLinter to test reports, generated artifacts, or Composer output.
+# Repository-level scanners do not all honor .gitignore, so vendor must also be
+# excluded explicitly even though file-oriented linters already ignore it.
+ADDITIONAL_EXCLUDED_DIRECTORIES: [report, megalinter-reports, .git, site, vendor]
 
-# don't scan files listed in .gitignore (e.g., node_modules)
+# Don't scan files listed in .gitignore (vendor, build output, generated docs, etc.).
 IGNORE_GITIGNORED_FILES: true
 
-# Disable several linters:
-#  - devskim: it's reporting an error with no log message
-#  - dustilock: it can't parse requirements.txt files with long lines (hashes)
-#  - osv-scanner: fails in repos without lockfiles
-#  - proselint: it may or may not be helpful, especially for POC work
-#  - copypaste_jscpd: it's a little touchy and may not be helpful
-#  - bash-exec: some .bash files don't need to be executable
-#  - lychee: markdown-link-check gives us this functionality
+# Disable linters that are genuinely outside the project's adopted toolchain or
+# have known project-specific limitations.  PHPStan is the project's static
+# analyzer; running an unconfigured second analyzer (Psalm) would create a second,
+# conflicting static-analysis contract rather than additional enforcement.
 DISABLE_LINTERS:
   [
     REPOSITORY_DEVSKIM,
@@ -22,49 +20,69 @@ DISABLE_LINTERS:
     COPYPASTE_JSCPD,
     BASH_EXEC,
     SPELL_LYCHEE,
+    PHP_PSALM,
+    EDITORCONFIG_EDITORCONFIG_CHECKER,
   ]
 
-# scan only new / updated files, not everything
-VALIDATE_ALL_CODEBASE: false
+# The repository is deliberately small.  Lint the complete codebase so the quality
+# gate does not depend on fetching Git history or persisted checkout credentials,
+# and so a green run means the repository as a whole is warning/error free.
+VALIDATE_ALL_CODEBASE: true
 
-# don't print the alpaca -- it's cute, but we don't need it in the logs
+# Don't print the alpaca -- it's cute, but we don't need it in the logs.
 PRINT_ALPACA: false
 
-# fail the workflow when MegaLinter finds errors
+# Fail the workflow when MegaLinter finds errors.
 DISABLE_ERRORS: false
 
-# use prettier for JavaScript code formatting
+# Avoid API reporter chatter on private-repository pull requests.  GitHub Actions
+# itself remains the source of workflow status and report artifacts.
+GITHUB_COMMENT_REPORTER: false
+
+# Project-owned PHP linter configuration.
+PHP_PHPCS_CONFIG_FILE: phpcs.xml
+PHP_PHPSTAN_CONFIG_FILE: phpstan.neon.dist
+PHP_PHPCSFIXER_CONFIG_FILE: .php-cs-fixer.dist.php
+SPELL_CSPELL_CONFIG_FILE: .cspell.json
+
+# The preserved ADR-001 rationale is intentionally a historical snapshot.  Keep
+# its prose and table whitespace unchanged; maintained Markdown remains subject to
+# markdownlint and markdown-table-formatter.
+MARKDOWN_MARKDOWNLINT_FILTER_REGEX_EXCLUDE: >-
+  ^doc/adr/rationale/
+
+# The ADR-001 rationale and pre-implementation mock exercise are historical design
+# evidence.  Their table whitespace is not a maintained presentation contract, so
+# do not rewrite those records solely to satisfy the table formatter.  Markdownlint
+# still validates the mock exercise normally.
+MARKDOWN_MARKDOWN_TABLE_FORMATTER_FILTER_REGEX_EXCLUDE: >-
+  ^(doc/adr/rationale/|doc/testing/preimplementation-mock-exercise\.md$)
+
+# Zizmor needs the workflow token for online audits of pinned public actions.
+# MegaLinter filters environment variables from linters unless explicitly allowed.
+ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
+  - GITHUB_TOKEN
+
+# Use Prettier for JavaScript code formatting.
 JAVASCRIPT_DEFAULT_STYLE: prettier
 
-# MegaLinter v6 supports SARIF reporters; if GitHub Advanced Security is not
-# available, this may need to be set to false so that GitHub doesn't complain
-# and fail the workflow.
-SARIF_REPORTER: true
+# This repository is private and does not upload MegaLinter SARIF.  More
+# importantly, the project-locked PHPStan does not provide a SARIF formatter, so
+# enabling the reporter causes MegaLinter to fail before PHPStan analyzes code.
+# Disabling this reporter changes output format only; PHPStan remains blocking.
+SARIF_REPORTER: false
 
-# only scan the files in This commit, not the entire history of the repo
-REPOSITORY_GITLEAKS_ARGUMENTS: --no-git
-
-# don't scan the .git directory GitHub creates at runtime
+# Don't scan the .git directory GitHub creates at runtime.
 REPOSITORY_TRUFFLEHOG_ARGUMENTS: "--exclude-paths=.trufflehogignore"
 
-# make sure Terraform modules are present
+# Make sure Terraform modules are present when Checkov is applicable.
 REPOSITORY_CHECKOV_ARGUMENTS: "--download-external-modules true"
 
-# make sure Common Platform Enumerations (CPEs) are present
+# Make sure Common Platform Enumerations (CPEs) are present when Grype is applicable.
 REPOSITORY_GRYPE_ARGUMENTS: "--add-cpes-if-none"
 
-# make sure that MegaLinter's reports folder is clean at the start of each
-# run so that tools like DefectDojo don't get confused by old reports
+# Start each run with a clean report directory.
 CLEAR_REPORT_FOLDER: true
 
-# don't check the libs, tests, vendor, or examples directories for
-# non-executable bash files
-BASH_EXEC_FILTER_REGEX_EXCLUDE: "(libs?|tests?|examples?|vendor)"
-
-# shfmt will..
-#   - use multiples of 2 spaces for indenting
-#   - alllow binary operations to start new lines
-#   - indent switch case statements
-#   - place spaces around redirections
-#   - keep column alignment padding
+# shfmt conventions for repository shell code.
 BASH_SHFMT_ARGUMENTS: -i 2 -bn -ci -sr -kp

@@ -390,20 +390,20 @@ job rather than produce a green workflow with hidden warnings.
 
 Use the following document for the corresponding kind of information:
 
-| Information | Authoritative home |
-| --- | --- |
-| Project purpose and orientation | `README.md` |
-| Contributor/agent operating rules | `AGENTS.md` |
-| Architectural rationale and history | `doc/adr/` |
-| ADR discovery summary | `doc/decisions.md` |
-| Current public behavior | `doc/connector-spec.md` once established |
-| Configuration contract | `doc/configuration.md` |
-| Security model | `doc/threat-model.md` |
-| Test strategy/evidence | `doc/testing/` |
-| Source-comment requirements | `doc/documentation.md` |
-| Implementation contracts | PHP source comments |
-| Generated API/reference pages | `doc/reference/` |
-| Cross-session continuity | `doc/project-handoff.md` |
+| Information                         | Authoritative home                       |
+|-------------------------------------|------------------------------------------|
+| Project purpose and orientation     | `README.md`                              |
+| Contributor/agent operating rules   | `AGENTS.md`                              |
+| Architectural rationale and history | `doc/adr/`                               |
+| ADR discovery summary               | `doc/decisions.md`                       |
+| Current public behavior             | `doc/connector-spec.md` once established |
+| Configuration contract              | `doc/configuration.md`                   |
+| Security model                      | `doc/threat-model.md`                    |
+| Test strategy/evidence              | `doc/testing/`                           |
+| Source-comment requirements         | `doc/documentation.md`                   |
+| Implementation contracts            | PHP source comments                      |
+| Generated API/reference pages       | `doc/reference/`                         |
+| Cross-session continuity            | `doc/project-handoff.md`                 |
 
 When a behavior crosses several surfaces, update all affected authoritative homes
 in the same coherent change rather than allowing one to drift.

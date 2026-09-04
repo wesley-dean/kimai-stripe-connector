@@ -13,7 +13,13 @@ indent_size = 2
 tab_width = 2
 max_line_length = 88
 
-# Bash Scripts
+# PHP follows PSR-12 indentation.
+[*.php]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+# Bash scripts
 [{.,}*.{sh,bash}]
 indent_style = space
 indent_size = 2
@@ -22,7 +28,7 @@ block_comment_start = ##
 block_comment_end = ##
 block_comment = ##
 
-# Python Files
+# Python files
 [{.,}*.{py,pyw}]
 indent_size = 4
 tab_width = 4
@@ -30,41 +36,45 @@ line_comment = #
 block_comment_start = """
 block_comment = """
 
-# Markdown Files
+# Markdown prose intentionally permits long narrative lines.  Markdown also
+# contains fenced diagrams and examples whose indentation is semantic, so a
+# repository-wide indentation multiple is not applicable inside these files.
 [{.,}*.{md,markdown}]
-indent_size = 2
+indent_size = unset
+max_line_length = 999
 trim_trailing_whitespace = false
-trim_final_newline = false
+insert_final_newline = true
 block_comment_start = <!---
 block_comment_end = -->
 
-# Makefiles
-[{.,}*.{mk,makefile,Makefile}]
+# Make recipes require literal tabs.
+[Makefile]
 indent_style = tab
-line_comment = #
+indent_size = tab
 
-# XML Configuration Files
+[*.mk]
+indent_style = tab
+indent_size = tab
+
+# XML configuration files use four-space nesting in this project.
 [{.,}**.{xml,config,props,targets,nuspec,resx,ruleset,vsixmanifest,vsct}]
-indent_size = 2
+indent_size = 4
 block_comment_start = <!--
 block_comment_end = -->
 
-# JSON Files
+# JSON strings and generated metadata may legitimately exceed source-code line
+# length.  Formatting remains enforced by Prettier/jsonlint.
 [{.,}*.{json,json5,webmanifest}]
 indent_size = 2
+max_line_length = 999
 
-# YAML Files
+# YAML files
 [{.,}*.{yaml,yml}]
 indent_style = space
 indent_size = 2
 line_comment = #
 
-# JSON files
-[{.,}*.{json,json5}]
-indent_style = space
-indent_size = 2
-
-# JavaScript Files
+# JavaScript files
 [{.,}*.{js,jsx}]
 indent_style = space
 indent_size = 2
@@ -72,3 +82,7 @@ line_comment = //
 block_comment_start = /**
 block_comment = *
 block_comment_end = */
+
+# Ignore-pattern files contain literal patterns rather than prose/source lines.
+[.gitignore]
+max_line_length = 999

@@ -149,14 +149,14 @@ The command accepts no invoice number and no desired paid state.  It discovers c
 
 Human output includes the stable ADR-013 result category.  Process exit codes are:
 
-| Result category | Exit code |
-| --- | ---: |
-| `SUCCESS` / `NO_CHANGE` | 0 |
-| `RETRYABLE` | 10 |
-| `CONFIGURATION_ERROR` | 20 |
-| `CONFLICT` | 30 |
-| `MANUAL_REVIEW_REQUIRED` | 40 |
-| `INTERNAL_ERROR` | 50 |
+| Result category          | Exit code |
+|--------------------------|----------:|
+| `SUCCESS` / `NO_CHANGE`  |         0 |
+| `RETRYABLE`              |        10 |
+| `CONFIGURATION_ERROR`    |        20 |
+| `CONFLICT`               |        30 |
+| `MANUAL_REVIEW_REQUIRED` |        40 |
+| `INTERNAL_ERROR`         |        50 |
 
 For a safe multi-invoice batch, independent invoices may continue after an item-level problem and the final process code is the highest applicable mapped code.
 

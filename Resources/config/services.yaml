@@ -13,6 +13,8 @@ services:
   KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\KimaiReconciliationInvoiceStore: ~
   KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\StripeReconciliationServiceFactory: ~
   KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\ReconcileCommand: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\Cleanup\StripeCleanupServiceFactory: ~
+  KimaiPlugin\KimaiStripeConnectorBundle\Cleanup\CleanupCommand: ~
 
   KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkInvoiceModelHydrator:
     autoconfigure: false
@@ -25,3 +27,6 @@ services:
 
   KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\ReconciliationServiceFactory:
     alias: KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\StripeReconciliationServiceFactory
+
+  KimaiPlugin\KimaiStripeConnectorBundle\Cleanup\CleanupServiceFactory:
+    alias: KimaiPlugin\KimaiStripeConnectorBundle\Cleanup\StripeCleanupServiceFactory

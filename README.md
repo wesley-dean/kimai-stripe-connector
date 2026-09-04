@@ -34,14 +34,20 @@ Humans and AI/LLM development tools should read these documents before substanti
 1. [`AGENTS.md`](AGENTS.md)
 2. [`doc/decisions.md`](doc/decisions.md)
 3. [`doc/project-handoff.md`](doc/project-handoff.md)
-4. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
-5. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
-6. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
-7. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
-8. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
-9. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
+4. [`Configuration Model`](doc/configuration.md)
+5. [`Threat Model`](doc/threat-model.md)
+6. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
+7. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
+8. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
+9. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
+10. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+11. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
 
 The handoff document records the project history, hard constraints, current decisions, reference environment, unresolved questions, known template residue, and recommended next work so a new development session does not need access to earlier conversations.
+
+[`doc/configuration.md`](doc/configuration.md) defines the connector's configuration contract.  Namespaced environment variables are the primary interface, file-backed secret injection is preferred for sensitive values in containerized production, and `.env` files are only a tertiary development/test convenience rather than a separate configuration system.
+
+[`doc/threat-model.md`](doc/threat-model.md) is the living architecture threat model.  It captures assets, trust boundaries, attack scenarios, controls, residual risks, open security questions, and a proposed abuse/security test backlog.  Revisit it when implementation details, Stripe permissions, supported payment methods, public interfaces, persistence, or packaging materially change.
 
 [`doc/reference-hosting-environment.md`](doc/reference-hosting-environment.md) describes the sanitized dogfooding/runtime environment: container orchestration, reverse proxy, external databases, NFS-backed persistence, scheduling, private-network posture, and outbound Stripe connectivity.  It intentionally omits hostnames, IP addresses, domain names, credentials, and other site-specific identifiers.  Treat it as operational context, not as a portability requirement for the plugin.
 
@@ -144,7 +150,7 @@ Do not interpret the current template license as a finalized architectural or pr
 
 The connector will handle Stripe API credentials and can change Kimai invoice paid state.  Least privilege, conservative financial decisions, secret-safe logging, and no unnecessary public ingress are core design concerns.
 
-See [`SECURITY.md`](SECURITY.md), ADR-001, and the project handoff for current security context.  The generic template security policy may require project-specific refinement before public release.
+See [`doc/threat-model.md`](doc/threat-model.md), [`doc/configuration.md`](doc/configuration.md), [`SECURITY.md`](SECURITY.md), ADR-001, and the project handoff for current security context.  The generic template security policy may require project-specific refinement before public release.
 
 ## Author
 

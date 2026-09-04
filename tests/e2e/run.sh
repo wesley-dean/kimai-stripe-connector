@@ -14,6 +14,7 @@ readonly COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 readonly PROJECT_NAME="kimai-stripe-connector-e2e-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-$$}"
 readonly PLUGIN_NAME="KimaiStripeConnectorBundle"
 readonly PLUGIN_PATH="/opt/kimai/var/plugins/${PLUGIN_NAME}"
+readonly KIMAI_CONSOLE="/opt/kimai/bin/console"
 
 readonly DB_USER="kimaiuser"
 readonly DB_PASSWORD="e2e-kimai-password"
@@ -79,19 +80,19 @@ compose up --detach --wait --wait-timeout 240
 # plugin volume belongs only to this Compose project and is destroyed by cleanup.
 compose exec --user root --no-TTY kimai mkdir -p "${PLUGIN_PATH}"
 compose cp "${REPOSITORY_ROOT}/." "kimai:${PLUGIN_PATH}"
-compose exec --no-TTY kimai bin/console kimai:reload --env=prod
+compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:reload --env=prod
 
 compose exec --no-TTY kimai php -r '
 require "/opt/kimai/vendor/autoload.php";
 exit(class_exists("KimaiPlugin\\KimaiStripeConnectorBundle\\KimaiStripeConnectorBundle") ? 0 : 1);
 '
 
-compose exec --no-TTY kimai bin/console kimai:version
+compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:version
 
 # Verify that the plugin can be removed cleanly and that a fresh Kimai CLI process
 # no longer resolves the bundle afterwards.
 compose exec --user root --no-TTY kimai rm -rf "${PLUGIN_PATH}"
-compose exec --no-TTY kimai bin/console kimai:reload --env=prod
+compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:reload --env=prod
 
 compose exec --no-TTY kimai php -r '
 require "/opt/kimai/vendor/autoload.php";

@@ -2,6 +2,7 @@
 <ruleset name="Kimai Stripe Connector">
     <description>PSR-12 coding standard for connector PHP source and tests.</description>
 
+    <file>Cleanup</file>
     <file>Common</file>
     <file>DependencyInjection</file>
     <file>KimaiStripeConnectorBundle.php</file>

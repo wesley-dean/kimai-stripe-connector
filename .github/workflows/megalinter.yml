@@ -24,7 +24,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      security-events: write
 
     steps:
       - name: Checkout code
@@ -58,17 +57,3 @@ jobs:
           path: |
             megalinter-reports
             megalinter-reports/megalinter.log
-
-      - name: Check for SARIF report
-        id: sarif_file_exists
-        uses: andstor/file-existence-action@558493d6c74bf472d87c84eab196434afc2fa029 # pin@v3.1.0
-        with:
-          files: "megalinter-reports/megalinter-report.sarif"
-
-      - name: Upload MegaLinter scan results to GitHub Security tab
-        if: |
-          steps.sarif_file_exists.outputs.files_exists == 'true'
-          && github.event.repository.visibility == 'public'
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # pin@v3.29.5
-        with:
-          sarif_file: "megalinter-reports/megalinter-report.sarif"

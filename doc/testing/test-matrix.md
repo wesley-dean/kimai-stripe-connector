@@ -40,15 +40,15 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 
 ## Phase 2 Primitive Coverage
 
-| Area                  | Repository tests                                           | Current evidence                                                                 |
-|-----------------------|------------------------------------------------------------|----------------------------------------------------------------------------------|
-| Configuration         | `ConfigurationTest`                                        | CFG-001..010 and CFG-013 parser semantics; safe-context support for CFG-011/012  |
-| Stable identity       | `KimaiInstanceIdTest`, `ConfigurationTest`, `MetadataTest` | Canonical non-nil UUID validation and lowercase metadata identity                |
+| Area                  | Repository tests                                           | Current evidence                                                                          |
+|-----------------------|------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| Configuration         | `ConfigurationTest`                                        | CFG-001..010 and CFG-013 parser semantics; safe-context support for CFG-011/012           |
+| Stable identity       | `KimaiInstanceIdTest`, `ConfigurationTest`, `MetadataTest` | Canonical non-nil UUID validation and lowercase metadata identity                         |
 | Money                 | `MoneyTest`                                                | Exact decimal and framework-float conversion, fail-closed precision/currency/range policy |
-| Metadata              | `MetadataTest`                                             | Version-1 write/parse validation, unknown-version rejection, Stripe value bounds |
-| Secret safety         | `SecretRedactorTest`, `ConfigurationTest`                  | Known-secret redaction and credential-free safe configuration context            |
-| Operator results      | `OperatorResultTest`                                       | ADR-013 category identifiers and success/no-change semantics                     |
-| Stripe client factory | `StripeClientFactoryTest`                                  | Restricted credential reaches SDK client; SDK API version is not overridden      |
+| Metadata              | `MetadataTest`                                             | Version-1 write/parse validation, unknown-version rejection, Stripe value bounds          |
+| Secret safety         | `SecretRedactorTest`, `ConfigurationTest`                  | Known-secret redaction and credential-free safe configuration context                     |
+| Operator results      | `OperatorResultTest`                                       | ADR-013 category identifiers and success/no-change semantics                              |
+| Stripe client factory | `StripeClientFactoryTest`                                  | Restricted credential reaches SDK client; SDK API version is not overridden               |
 
 ## Phase 3 Payment Link Coverage
 
@@ -57,7 +57,7 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 | Planning                 | `PaymentLinkPlannerTest`             | Preview, reuse, create, financial conflict, ambiguity, malformed same-invoice metadata, inactive exact link                 |
 | Request construction     | `PaymentLinkCreateRequestTest`       | Card-only, one-completed-session limit, exact amount/currency, metadata propagation request, deterministic idempotency key  |
 | Orchestration            | `PaymentLinkServiceTest`             | Discovery, reuse, create, definite failure, uncertain commit rediscovery, no blind second create                            |
-| Stripe SDK adapter       | `StripePaymentLinkGatewayTest`       | Pagination, response validation, create failure classification                                                              |
+| Stripe SDK adapter       | `StripePaymentLinkGatewayTest`       | Pagination, response validation, create failure classification                                                             |
 | Controlled HTTP boundary | `StripePaymentLinkHttpBoundaryTest`  | Real locked stripe-php request shape, idempotency header, timeout-after-remote-commit recovery                              |
 | Kimai money boundary     | `KimaiInvoiceMetadataFactoryTest`    | Kimai float conversion through shared exact money policy; binary-artifact precision fails closed                            |
 | Kimai pre-render seam    | `InvoicePaymentLinkSubscriberTest`   | Preview before config/Stripe access, disabled no-op, safe URL hydration, automatic failure stops rendering                  |
@@ -65,15 +65,15 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 
 ## Phase 4 Reconciliation Coverage
 
-| Area | Repository tests | Current evidence |
-| --- | --- | --- |
-| Pure financial decision | `ReconciliationPlannerTest` | Exact successful chain, missing/unsupported states, amount/currency/metadata/relationship contradictions, partial capture, refunds/disputes, repeated sessions, competing Payment Links |
-| Batch orchestration | `ReconciliationServiceTest` | No-link no-op, exact paid transition, dry-run, per-invoice failure isolation, persistence failure, paid orphan, unpaid orphan, already-paid idempotence |
+| Area                         | Repository tests                       | Current evidence                                                                                                                                                                                                      |
+|------------------------------|----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Pure financial decision      | `ReconciliationPlannerTest`            | Exact successful chain, missing/unsupported states, amount/currency/metadata/relationship contradictions, partial capture, refunds/disputes, repeated sessions, competing Payment Links                               |
+| Batch orchestration          | `ReconciliationServiceTest`            | No-link no-op, exact paid transition, dry-run, per-invoice failure isolation, persistence failure, paid orphan, unpaid orphan, already-paid idempotence                                                               |
 | Read-only Stripe SDK adapter | `StripeReconciliationHttpBoundaryTest` | Real locked SDK GET request paths, pagination parameters, Payment Link -> Checkout Session -> PaymentIntent -> Charge traversal, instance scoping, malformed evidence, retryable connection failure, Charge timestamp |
-| Kimai persistence boundary | `KimaiReconciliationInvoiceStoreTest` | Exact Kimai snapshot, shared fail-closed float conversion, last-moment re-read, TOCTOU drift conflict, evidence mismatch, concurrent already-paid no-op, Stripe payment-date application |
-| External command | `ReconcileCommandTest` | Disabled no-op, configuration failure, `--dry-run`, material manual-review exit, retryable run-level failure, stable human result category |
-| DI / production packaging | disposable Kimai E2E | Production-shaped plugin installation/reload/removal verifies real Kimai can construct registered Phase 4 services |
-| Real paid sandbox E2E | future extension of sandbox workflow | Hosted test-card Checkout and exact Kimai paid mutation remain intentionally unclaimed until implemented and run |
+| Kimai persistence boundary   | `KimaiReconciliationInvoiceStoreTest`  | Exact Kimai snapshot, shared fail-closed float conversion, last-moment re-read, TOCTOU drift conflict, evidence mismatch, concurrent already-paid no-op, Stripe payment-date application                              |
+| External command             | `ReconcileCommandTest`                 | Disabled no-op, configuration failure, `--dry-run`, material manual-review exit, retryable run-level failure, stable human result category                                                                            |
+| DI / production packaging    | disposable Kimai E2E                   | Production-shaped plugin installation/reload/removal verifies real Kimai can construct registered Phase 4 services                                                                                                    |
+| Real paid sandbox E2E        | future extension of sandbox workflow   | Hosted test-card Checkout and exact Kimai paid mutation remain intentionally unclaimed until implemented and run                                                                                                      |
 
 The PHPUnit suite explicitly includes both `tests/Unit` and `tests/Integration`.  This prevents controlled-SDK tests from existing in the repository without actually executing under `composer check`.
 
@@ -89,14 +89,14 @@ The authoritative historical scenario descriptions remain in `preimplementation-
 
 ## Historical Reconciliation Scenario Status
 
-| IDs | Primary layer | Status / notes |
-| --- | --- | --- |
-| REC-001..012 | Unit/controlled Stripe | Implemented through planner and read-only gateway evidence validation |
-| REC-013..016 | Unit/controlled Stripe | Implemented for refunds/disputes/capture/ambiguity with no unsafe reversal or paid transition |
-| REC-017 | Unit/Kimai boundary | Persistence failure returns a non-success operator result and never reports false mutation |
+| IDs          | Primary layer                         | Status / notes                                                                                           |
+|--------------|---------------------------------------|----------------------------------------------------------------------------------------------------------|
+| REC-001..012 | Unit/controlled Stripe                | Implemented through planner and read-only gateway evidence validation                                    |
+| REC-013..016 | Unit/controlled Stripe                | Implemented for refunds/disputes/capture/ambiguity with no unsafe reversal or paid transition            |
+| REC-017      | Unit/Kimai boundary                   | Persistence failure returns a non-success operator result and never reports false mutation               |
 | REC-018..020 | Unit/controlled Stripe/Kimai boundary | Implemented for exact successful evidence, repeated-session behavior, and idempotent paid-state handling |
-| REC-021 | Unit orchestration | Paid Stripe orphan requires manual review and is never discarded or auto-applied |
-| REC-022 | Unit/controlled Stripe | Implemented conservative anomaly behavior |
+| REC-021      | Unit orchestration                    | Paid Stripe orphan requires manual review and is never discarded or auto-applied                         |
+| REC-022      | Unit/controlled Stripe                | Implemented conservative anomaly behavior                                                                |
 
 Real hosted payment remains a separate evidence layer.  Lower-layer implementation of the scenario matrix does not claim that Stripe-hosted Checkout has been exercised end to end.
 
@@ -158,8 +158,8 @@ A `.env` file remains only one possible mechanism for populating process environ
 
 ## Money Coverage
 
-| IDs          | Primary layer | Status / notes |
-|--------------|---------------|----------------|
+| IDs          | Primary layer | Status / notes                                                                                                                 |
+|--------------|---------------|--------------------------------------------------------------------------------------------------------------------------------|
 | MNY-001..008 | Unit          | Implemented with exact text parsing, shared framework-float conversion, no rounding, fail-closed currencies, and Stripe bounds |
 
 ## Cleanup Backlog
@@ -172,25 +172,25 @@ Paid or uncertain objects must remain conservative.  Sandbox cleanup evidence do
 
 ## Network and Concurrency Backlog
 
-| IDs          | Primary layer                         | Status / notes |
-|--------------|---------------------------------------|----------------|
-| NET-001..008 | Controlled Stripe/network             | Payment Link and reconciliation adapters cover key API failure/retry paths; remaining synthetic fault cases stay lower-layer work |
+| IDs          | Primary layer                         | Status / notes                                                                                                                                    |
+|--------------|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| NET-001..008 | Controlled Stripe/network             | Payment Link and reconciliation adapters cover key API failure/retry paths; remaining synthetic fault cases stay lower-layer work                 |
 | CON-001..004 | Controlled Stripe/concurrency harness | Kimai persistence now re-reads before mutation and handles already-paid races; broader simultaneous-process locking/load scenarios remain pending |
 
 These scenarios shall not be implemented solely as real Stripe E2E tests because timing/failure induction would be nondeterministic and inappropriate for Stripe's sandbox.
 
 ## Kimai Integration Status
 
-| IDs          | Primary layer                    | Status / notes |
-|--------------|----------------------------------|----------------|
+| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                           |
+|--------------|----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | KIM-001..012 | Disposable Kimai integration/E2E | Plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; paid persistence is modeled against the verified Kimai 2.65 public API and still needs canonical full paid E2E before a release-level claim |
 
 The disposable Kimai lifecycle harness remains the canonical ephemeral host fixture.
 
 ## Stripe Contract Status
 
-| IDs          | Primary layer                                        | Status / notes |
-|--------------|------------------------------------------------------|----------------|
+| IDs          | Primary layer                                        | Status / notes                                                                                                                                                                                                               |
+|--------------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | STR-001..011 | Controlled Stripe plus representative sandbox subset | Payment Link create/read/restriction/money/metadata/permission subset is real-sandbox proven; reconciliation GET request/object-chain behavior is controlled-SDK proven; hosted paid object chain remains future sandbox E2E |
 
 Real sandbox tests should prove only assumptions that require Stripe.  Hostile response shapes and fault injection remain deterministic controlled tests.

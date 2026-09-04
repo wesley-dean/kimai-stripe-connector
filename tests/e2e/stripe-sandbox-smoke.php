@@ -106,7 +106,7 @@ try {
 
     $price = $lineItem['price'] ?? null;
     if (!is_array($price)) {
-        throw new RuntimeException('Stripe did not return an inspectable line-item price.');
+        throw new RuntimeException('Stripe did not return a readable line-item price.');
     }
 
     if (($price['unit_amount'] ?? null) !== 1234 || ($price['currency'] ?? null) !== $probeCurrency) {

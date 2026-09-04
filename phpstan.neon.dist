@@ -3,6 +3,7 @@ parameters:
     paths:
         - Common
         - DependencyInjection
+        - PaymentLink
         - KimaiStripeConnectorBundle.php
     excludePaths:
         analyse:

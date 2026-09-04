@@ -8,6 +8,7 @@ use App\Entity\Invoice;
 use App\Invoice\InvoiceService;
 use App\Repository\InvoiceRepository;
 use DateTimeImmutable;
+use DateTimeZone;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Identity\KimaiInstanceId;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Metadata\InvoiceMetadata;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Money\Money;
@@ -164,7 +165,10 @@ final class KimaiReconciliationInvoiceStoreTest extends TestCase
         $invoice->setInvoiceNumber('INV-0042');
         $invoice->setTotal(875.10);
         $invoice->setCurrency('USD');
-        $invoice->setCreatedAt(new DateTimeImmutable('2026-09-01T12:00:00-04:00'));
+        $invoice->setCreatedAt(new DateTimeImmutable(
+            '2026-09-01T12:00:00',
+            new DateTimeZone('America/New_York'),
+        ));
 
         return $invoice;
     }

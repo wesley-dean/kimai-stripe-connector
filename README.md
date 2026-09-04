@@ -23,9 +23,9 @@ Architecture and implementation-preparation decisions are Accepted.
 The repository now contains:
 
 - an inert installable Kimai plugin bundle skeleton;
-- PHP/Composer package metadata;
-- PHPUnit/PHPStan and PHP coding-standard configuration;
-- PHP 8.2–8.5 CI;
+- PHP/Composer package metadata and a committed minimum-PHP-resolved `composer.lock`;
+- PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer project-local tooling;
+- PHP 8.2–8.5 CI using the same locked dependency graph;
 - a disposable Kimai 2.65.0 + MySQL plugin-lifecycle E2E harness;
 - PHP-aware MegaLinter configuration with auto-fixes disabled;
 - Doxygen/PHPDoc source-documentation standards and generated reference tooling;
@@ -122,6 +122,8 @@ Metadata version:  1
 Stripe credential: one least-privilege restricted key initially
 ```
 
+`composer.lock` is resolved from the minimum supported PHP 8.2 environment and committed.  PHP 8.2, 8.3, 8.4, and 8.5 CI install that same graph.
+
 Compatibility claims must follow executable evidence.
 
 ## Plugin Packaging
@@ -140,7 +142,7 @@ KimaiPlugin\KimaiStripeConnectorBundle\
 
 The release/plugin artifact is self-contained and carries plugin-local Composer production dependencies rather than modifying Kimai's root Composer graph.
 
-Source control ignores the generated/local `vendor/` tree.
+Source control ignores the generated/local `vendor/` tree while committing the dependency lockfile.
 
 ## Testing
 
@@ -195,11 +197,17 @@ After Composer dependencies are installed:
 ```text
 make test
 make analyse
+make lint
+make format-check
 make check
 make e2e
 make docs
 make docs-clean
 ```
+
+`make check` is the ordinary local PHP gate and runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer in check-only mode.
+
+`make format` applies the configured PHP-CS-Fixer rules explicitly.  CI and MegaLinter do not auto-fix source.
 
 The generated Doxygen reference tree lives under ignored `doc/reference/`.
 
@@ -216,9 +224,15 @@ APPLY_FIXES: false
 
 A successful workflow is considered clean only when MegaLinter reports zero errors and zero warnings.
 
-The repository also runs PHP matrix tests/static analysis, disposable Kimai E2E, and Doxygen generation.
+The repository also runs:
+
+- PHP 8.2–8.5 against the committed lockfile with PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer;
+- disposable Kimai E2E; and
+- Doxygen generation with warnings treated as failures.
 
 Dependabot covers GitHub Actions and Composer dependencies.  Semver/release automation is intentionally retained during initial development; frequent patch releases are acceptable and useful for visible progress.
+
+CodeQL and OpenSSF Scorecard are not relied upon as blocking controls while this repository remains private.
 
 ## Configuration
 

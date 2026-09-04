@@ -19,25 +19,23 @@ use Stripe\Exception\ApiErrorException;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-const PROBE_AMOUNT = '12.34';
-const PROBE_CURRENCY = 'usd';
+$probeAmount = '12.34';
+$probeCurrency = 'usd';
 
 /**
  * @param array<string, mixed> $actual
  * @param array<string, mixed> $expected
  */
-function assertExactArray(array $actual, array $expected, string $label): void
-{
+$assertExactArray = static function (array $actual, array $expected, string $label): void {
     ksort($actual);
     ksort($expected);
 
     if ($actual !== $expected) {
         throw new RuntimeException($label . ' did not match the expected connector contract.');
     }
-}
+};
 
-function requireStringEnvironment(string $name): string
-{
+$requireStringEnvironment = static function (string $name): string {
     $value = getenv($name);
 
     if (!is_string($value) || $value === '') {
@@ -45,9 +43,9 @@ function requireStringEnvironment(string $name): string
     }
 
     return $value;
-}
+};
 
-$secret = requireStringEnvironment('KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY');
+$secret = $requireStringEnvironment('KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY');
 $redactor = new SecretRedactor();
 $linkId = null;
 $client = null;
@@ -59,12 +57,12 @@ try {
         throw new RuntimeException('Stripe sandbox probe refuses to use a live-mode credential.');
     }
 
-    $runId = requireStringEnvironment('STRIPE_SANDBOX_RUN_ID');
-    $instanceId = new KimaiInstanceId(requireStringEnvironment('KIMAI_STRIPE_CONNECTOR_INSTANCE_ID'));
+    $runId = $requireStringEnvironment('STRIPE_SANDBOX_RUN_ID');
+    $instanceId = new KimaiInstanceId($requireStringEnvironment('KIMAI_STRIPE_CONNECTOR_INSTANCE_ID'));
     $metadata = new InvoiceMetadata(
         $instanceId,
         'E2E-STRIPE-' . $runId,
-        Money::fromDecimal(PROBE_AMOUNT, PROBE_CURRENCY),
+        Money::fromDecimal($probeAmount, $probeCurrency),
     );
     $request = PaymentLinkCreateRequest::fromInvoiceMetadata($metadata);
 
@@ -77,7 +75,7 @@ try {
     }
 
     $payload = $link->toArray();
-    assertExactArray(
+    $assertExactArray(
         is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
         $metadata->toStripeMetadata(),
         'Payment Link metadata',
@@ -111,12 +109,12 @@ try {
         throw new RuntimeException('Stripe did not return an inspectable line-item price.');
     }
 
-    if (($price['unit_amount'] ?? null) !== 1234 || ($price['currency'] ?? null) !== PROBE_CURRENCY) {
+    if (($price['unit_amount'] ?? null) !== 1234 || ($price['currency'] ?? null) !== $probeCurrency) {
         throw new RuntimeException('Stripe line-item amount or currency did not match the exact invoice amount.');
     }
 
     $retrieved = $client->paymentLinks->retrieve($linkId)->toArray();
-    assertExactArray(
+    $assertExactArray(
         is_array($retrieved['metadata'] ?? null) ? $retrieved['metadata'] : [],
         $metadata->toStripeMetadata(),
         'Retrieved Payment Link metadata',

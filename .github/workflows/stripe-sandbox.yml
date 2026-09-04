@@ -10,8 +10,9 @@ permissions:
 
 jobs:
   contract-probe:
-    name: Restricted-key contract probe
+    name: Restricted-key contract and hosted payment
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
     environment: stripe-sandbox
 
     steps:
@@ -39,3 +40,11 @@ jobs:
         run: |
           set +x
           php tests/e2e/stripe-sandbox-smoke.php
+
+      - name: Run hosted payment and reconciliation E2E
+        env:
+          STRIPE_HOSTED_WAIT_SECONDS: "900"
+          STRIPE_SANDBOX_RESTRICTED_KEY: ${{ secrets.STRIPE_SANDBOX_RESTRICTED_KEY }}
+        run: |
+          set +x
+          bash tests/e2e/run-stripe-hosted.sh

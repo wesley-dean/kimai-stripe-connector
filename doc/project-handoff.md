@@ -22,9 +22,11 @@ As of this handoff:
 - PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer are project-local Composer development tools;
 - `make check` runs the ordinary local PHP validation suite;
 - MegaLinter uses the PHP flavor and remains a zero-error/zero-warning gate with auto-fixes disabled;
+- `editorconfig-checker` is intentionally disabled in MegaLinter; `.editorconfig` remains contributor/editor guidance rather than a repository quality gate;
 - PHP CI targets PHP 8.2, 8.3, 8.4, and 8.5 and installs the same committed dependency graph on every runtime;
 - a disposable Kimai 2.65.0 + MySQL E2E lifecycle harness exists under `tests/e2e/`;
 - the E2E harness constructs fresh containers/volumes, installs the plugin, reloads Kimai, verifies it, removes it, reloads again, and destroys all local test state;
+- the disposable Kimai healthcheck preserves the upstream steady-state probe but uses a 30-minute `start_period` because pristine Kimai startup/migrations can legitimately exceed the image's default startup grace period;
 - Doxygen is configured to generate PHP reference documentation under ignored `doc/reference/`;
 - project-specific CONTRIBUTING, SUPPORT, SECURITY, configuration, threat-model, testing, and hosting documentation replaces the most misleading template residue;
 - no production Stripe mutation behavior has been implemented yet;
@@ -333,6 +335,10 @@ docker compose down --volumes --remove-orphans
 
 No Kimai database/application state is intentionally reused between runs.
 
+Kimai's upstream health probe remains the steady-state health signal.  The disposable Compose environment overrides only `start_period`, setting it to 30 minutes so first-run migrations/initialization do not consume the image's small default retry budget.  Successful probes can still mark the container healthy before the grace period expires.
+
+Failure paths print Compose state, Kimai health data, and recent Kimai/database logs before teardown.  Cleanup still runs after diagnostics.
+
 See [`../tests/e2e/README.md`](../tests/e2e/README.md) and [`testing/e2e-stripe-sandbox.md`](testing/e2e-stripe-sandbox.md).
 
 Real Stripe sandbox E2E will reuse this disposable Kimai environment.  Stripe-side test objects need separate run-specific identification and safe cleanup because Stripe is external to Docker.
@@ -413,7 +419,11 @@ APPLY_FIXES: false
 
 A green workflow status is not sufficient if the report contains warnings.  Completion requires zero reported MegaLinter errors and zero reported MegaLinter warnings.
 
+`editorconfig-checker` is intentionally not part of that quality gate.  `.editorconfig` provides editor defaults, while language/file-specific tools such as PHPCS, PHP-CS-Fixer, markdownlint, yamllint, Prettier, ShellCheck, and shfmt own their applicable enforceable standards.
+
 The PHP workflow validates the committed Composer metadata/lockfile, installs the exact graph, then runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer across PHP 8.2–8.5.
+
+MegaLinter installs the same locked Composer graph before running PHP analysis so its PHPStan environment is complete.  Psalm is not an adopted second static-analysis contract; PHPStan is the project's selected static analyzer.
 
 The Kimai E2E workflow exercises the real disposable plugin lifecycle.
 

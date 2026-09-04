@@ -175,12 +175,15 @@ Each run:
 ```text
 creates fresh Compose project + named volumes
 -> starts Kimai 2.65.0 + MySQL
--> installs checked-out plugin
+-> stages plugin source with composer install --no-dev from composer.lock
+-> installs the production-shaped stage under var/plugins
 -> reloads and verifies Kimai
 -> removes plugin
 -> reloads and verifies Kimai again
--> destroys containers, network, and every named volume
+-> destroys containers, network, every named volume, and the local stage
 ```
+
+The E2E harness intentionally does not copy a developer checkout's `vendor/` tree into Kimai.  That tree may contain PHPUnit, PHPStan, Symfony development packages, and other dependencies that are not part of the production plugin artifact and can collide with Kimai's own dependency graph.
 
 Cleanup is guaranteed through a shell trap using:
 
@@ -192,7 +195,7 @@ The long-lived dogfooding Kimai instance is not the E2E fixture.
 
 ## Development Commands
 
-After Composer dependencies are installed:
+After Composer development dependencies are installed, the ordinary PHP commands are:
 
 ```text
 make test
@@ -200,7 +203,6 @@ make analyse
 make lint
 make format-check
 make check
-make e2e
 make docs
 make docs-clean
 ```
@@ -208,6 +210,8 @@ make docs-clean
 `make check` is the ordinary local PHP gate and runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer in check-only mode.
 
 `make format` applies the configured PHP-CS-Fixer rules explicitly.  CI and MegaLinter do not auto-fix source.
+
+`make e2e` is independent of the repository-root development `vendor/` tree.  It requires Docker with Compose and Composer on `PATH`, then stages its own production dependency graph from the committed lockfile.
 
 The generated Doxygen reference tree lives under ignored `doc/reference/`.
 

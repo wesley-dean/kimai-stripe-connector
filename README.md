@@ -34,13 +34,16 @@ Humans and AI/LLM development tools should read these documents before substanti
 1. [`AGENTS.md`](AGENTS.md)
 2. [`doc/decisions.md`](doc/decisions.md)
 3. [`doc/project-handoff.md`](doc/project-handoff.md)
-4. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
-5. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
-6. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
-7. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
-8. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
+4. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
+5. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
+6. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
+7. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
+8. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+9. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
 
 The handoff document records the project history, hard constraints, current decisions, reference environment, unresolved questions, known template residue, and recommended next work so a new development session does not need access to earlier conversations.
+
+[`doc/reference-hosting-environment.md`](doc/reference-hosting-environment.md) describes the sanitized dogfooding/runtime environment: container orchestration, reverse proxy, external databases, NFS-backed persistence, scheduling, private-network posture, and outbound Stripe connectivity.  It intentionally omits hostnames, IP addresses, domain names, credentials, and other site-specific identifiers.  Treat it as operational context, not as a portability requirement for the plugin.
 
 [`doc/evaluated-tools.md`](doc/evaluated-tools.md) preserves the Harvest-replacement comparison that led to Kimai.  Consult it before reopening previously rejected products such as Invoice Ninja, Miru, Dolibarr, SolidInvoice, or ERPNext.  Those decisions are historical rather than permanent: reconsider a tool when project requirements or the product have materially changed, and verify current upstream facts before relying on the older evaluation.
 

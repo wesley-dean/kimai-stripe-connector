@@ -5,5 +5,5 @@ parameters:
         - KimaiStripeConnectorBundle.php
     excludePaths:
         analyse:
-            - vendor
+            - vendor (?)
             - tests

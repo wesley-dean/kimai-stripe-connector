@@ -52,7 +52,7 @@ final class KimaiInvoiceMetadataFactory
                 $model->getInvoiceNumber(),
                 Money::fromDecimal($decimal, $model->getCurrency()),
             );
-        } catch (JsonException|InvalidArgumentException $exception) {
+        } catch (JsonException | InvalidArgumentException $exception) {
             throw new PaymentLinkGenerationException(
                 'Kimai invoice total cannot be represented exactly by the connector money policy.',
                 previous: $exception,

@@ -51,8 +51,9 @@ final class ReconciliationPlanner
         }
 
         if (count($logicalCandidates) > 1) {
-            return ReconciliationPlan::manualReview(
+            return ReconciliationPlan::conflict(
                 'Multiple Payment Links match the same exact Kimai invoice identity.',
+                $logicalCandidates[0],
             );
         }
 

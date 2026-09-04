@@ -129,11 +129,23 @@ final class ReconciliationPlannerTest extends TestCase
 
     public function testUncapturedChargeProducesNoChange(): void
     {
-        $candidate = $this->successfulCandidate(charge: $this->charge(captured: false));
+        $candidate = $this->successfulCandidate(
+            charge: $this->charge(captured: false, amountCaptured: 0),
+        );
 
         $plan = (new ReconciliationPlanner())->plan(false, $this->metadata(), [$candidate]);
 
         self::assertSame(OperatorResult::NO_CHANGE, $plan->result());
+    }
+
+    public function testPartiallyCapturedChargeProducesConflict(): void
+    {
+        $candidate = $this->successfulCandidate(charge: $this->charge(amountCaptured: 40000));
+
+        $plan = (new ReconciliationPlanner())->plan(false, $this->metadata(), [$candidate]);
+
+        self::assertSame(OperatorResult::CONFLICT, $plan->result());
+        self::assertFalse($plan->shouldMarkPaid());
     }
 
     public function testRefundedChargeRequiresManualReview(): void
@@ -177,6 +189,43 @@ final class ReconciliationPlannerTest extends TestCase
         self::assertSame($candidate, $plan->candidate());
     }
 
+    public function testOpenAttemptAndSuccessfulAttemptOnSameLinkMarksPaid(): void
+    {
+        $openAttempt = $this->candidate(
+            session: $this->session(id: 'cs_open', status: 'open', paymentStatus: 'unpaid', paymentIntentId: null),
+        );
+        $successfulAttempt = $this->successfulCandidate();
+
+        $plan = (new ReconciliationPlanner())->plan(
+            false,
+            $this->metadata(),
+            [$openAttempt, $successfulAttempt],
+        );
+
+        self::assertSame(OperatorResult::SUCCESS, $plan->result());
+        self::assertTrue($plan->shouldMarkPaid());
+        self::assertSame($successfulAttempt, $plan->candidate());
+    }
+
+    public function testMultipleSuccessfulAttemptsOnSameLinkRequireManualReview(): void
+    {
+        $secondSession = $this->session(id: 'cs_2', paymentIntentId: 'pi_2');
+        $secondIntent = $this->intent(id: 'pi_2', latestChargeId: 'ch_2');
+        $secondCharge = $this->charge(id: 'ch_2', paymentIntentId: 'pi_2');
+
+        $plan = (new ReconciliationPlanner())->plan(
+            false,
+            $this->metadata(),
+            [
+                $this->successfulCandidate(),
+                $this->successfulCandidate($secondSession, $secondIntent, $secondCharge),
+            ],
+        );
+
+        self::assertSame(OperatorResult::MANUAL_REVIEW_REQUIRED, $plan->result());
+        self::assertFalse($plan->shouldMarkPaid());
+    }
+
     public function testRerunAfterPaidIsIdempotentNoChange(): void
     {
         $plan = (new ReconciliationPlanner())->plan(true, $this->metadata(), [$this->successfulCandidate()]);
@@ -213,7 +262,7 @@ final class ReconciliationPlannerTest extends TestCase
         self::assertSame(OperatorResult::MANUAL_REVIEW_REQUIRED, $plan->result());
     }
 
-    public function testMultipleExactCandidatesProduceConflict(): void
+    public function testMultipleExactPaymentLinksProduceConflict(): void
     {
         $plan = (new ReconciliationPlanner())->plan(
             false,
@@ -287,6 +336,7 @@ final class ReconciliationPlannerTest extends TestCase
     }
 
     private function session(
+        string $id = 'cs_1',
         string $status = 'complete',
         string $paymentStatus = 'paid',
         int $amount = 87510,
@@ -296,7 +346,7 @@ final class ReconciliationPlannerTest extends TestCase
         ?InvoiceMetadata $metadata = null,
     ): CheckoutSessionEvidence {
         return new CheckoutSessionEvidence(
-            'cs_1',
+            $id,
             $status,
             $paymentStatus,
             $amount,
@@ -328,22 +378,25 @@ final class ReconciliationPlannerTest extends TestCase
     }
 
     private function charge(
+        string $id = 'ch_1',
         bool $paid = true,
         bool $captured = true,
         bool $refunded = false,
         bool $disputed = false,
         int $amount = 87510,
+        int $amountCaptured = 87510,
         int $amountRefunded = 0,
         string $currency = 'usd',
         string $paymentIntentId = 'pi_1',
     ): ChargeEvidence {
         return new ChargeEvidence(
-            'ch_1',
+            $id,
             $paid,
             $captured,
             $refunded,
             $disputed,
             $amount,
+            $amountCaptured,
             $amountRefunded,
             $currency,
             $paymentIntentId,

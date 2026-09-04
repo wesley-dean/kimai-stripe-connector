@@ -49,7 +49,7 @@ final class EnvironmentConfigurationLoader
 
                 return $contents;
             }
-            : Closure::fromCallable($readSecretFile);
+        : Closure::fromCallable($readSecretFile);
     }
 
     /**

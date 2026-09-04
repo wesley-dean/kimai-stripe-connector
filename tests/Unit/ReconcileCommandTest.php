@@ -23,6 +23,7 @@ use KimaiStripeConnectorTests\Support\InMemoryReconciliationInvoiceStore;
 use KimaiStripeConnectorTests\Support\StubReconciliationServiceFactory;
 use KimaiStripeConnectorTests\Support\StubReconciliationStripeGateway;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use Symfony\Component\Console\Tester\CommandTester;
 
 final class ReconcileCommandTest extends TestCase
@@ -116,6 +117,32 @@ final class ReconcileCommandTest extends TestCase
         self::assertCount(1, $factory->credentials);
     }
 
+    public function testConflictOutcomeUsesStableExitCode(): void
+    {
+        $this->enableReconciliation();
+        $metadata = $this->metadata();
+        $stripe = new StubReconciliationStripeGateway(
+            [
+                new ManagedPaymentLinkEvidence('plink_a', $metadata),
+                new ManagedPaymentLinkEvidence('plink_b', $metadata),
+            ],
+            [
+                'plink_a' => [new ReconciliationCandidate('plink_a', $metadata)],
+                'plink_b' => [new ReconciliationCandidate('plink_b', $metadata)],
+            ],
+        );
+        $store = new InMemoryReconciliationInvoiceStore([
+            'INV-0042' => new ReconciliationInvoice($metadata, false),
+        ]);
+        $tester = $this->tester(new StubReconciliationServiceFactory($this->service($stripe, $store)));
+
+        $exit = $tester->execute([]);
+
+        self::assertSame(ReconcileCommand::EXIT_CONFLICT, $exit);
+        self::assertStringContainsString('[CONFLICT]', $tester->getDisplay());
+        self::assertSame([], $store->markPaidCalls);
+    }
+
     public function testMaterialManualReviewOutcomeUsesStableExitCode(): void
     {
         $this->enableReconciliation();
@@ -154,6 +181,22 @@ final class ReconcileCommandTest extends TestCase
 
         self::assertSame(ReconcileCommand::EXIT_RETRYABLE, $exit);
         self::assertStringContainsString('[RETRYABLE]', $tester->getDisplay());
+    }
+
+    public function testUnexpectedFactoryFailureUsesInternalErrorExitCodeWithoutLeakingException(): void
+    {
+        $this->enableReconciliation();
+        $factory = new StubReconciliationServiceFactory(
+            $this->service(new StubReconciliationStripeGateway([])),
+            new RuntimeException('sensitive implementation detail'),
+        );
+        $tester = $this->tester($factory);
+
+        $exit = $tester->execute([]);
+
+        self::assertSame(ReconcileCommand::EXIT_INTERNAL_ERROR, $exit);
+        self::assertStringContainsString('[INTERNAL_ERROR]', $tester->getDisplay());
+        self::assertStringNotContainsString('sensitive implementation detail', $tester->getDisplay());
     }
 
     private function tester(StubReconciliationServiceFactory $factory): CommandTester

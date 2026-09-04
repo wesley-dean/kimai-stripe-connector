@@ -107,15 +107,15 @@ Checkout, PHP setup, and dependency installation do not receive the Stripe secre
 
 The verified sandbox permission set is:
 
-| Stripe resource | Permission |
-|-----------------|------------|
-| Payment Links | Write |
-| Checkout Sessions | Read |
-| Payment Intents | Read |
-| Charges | Read |
-| Products | None |
-| Prices | None |
-| All other resources | None |
+| Stripe resource     | Permission |
+|---------------------|------------|
+| Payment Links       | Write      |
+| Checkout Sessions   | Read       |
+| Payment Intents     | Read       |
+| Charges             | Read       |
+| Products            | None       |
+| Prices              | None       |
+| All other resources | None       |
 
 See [`../stripe-restricted-key.md`](../stripe-restricted-key.md) for operator-facing details.
 
@@ -247,19 +247,19 @@ Use real Stripe only for contracts that Stripe itself must prove.  Keep timeout 
 
 ## Current and Future E2E Scenarios
 
-| Scenario | Status | Purpose |
-|----------|--------|---------|
-| E2E-001 plugin lifecycle | Implemented | Install/reload/remove/reload with healthy disposable Kimai |
-| E2E-002 preview causes no Stripe mutation | Lower-layer implemented; full Kimai/Stripe proof pending | Preserve preview safety |
-| E2E-003 successful invoice/card/reconciliation | Pending Phase 4 | Canonical business flow |
-| E2E-004 exact amount/currency/metadata | Payment Link contract subset implemented | Prove exact Stripe representation |
-| E2E-005 declined card leaves Kimai unpaid | Pending Phase 4 | False-positive prevention |
-| E2E-006 reconciliation idempotence | Pending Phase 4 | Safe rerun behavior |
-| E2E-007 correct invoice among multiple invoices | Pending Phase 4 | Exact target selection |
-| E2E-008 plugin disabled/manual fallback | Lower-layer/lifecycle evidence exists | Preserve manual operation |
-| E2E-009 orphan recovery | Controlled layer implemented; real-system subset optional | Partial-failure recovery |
-| E2E-010 refund/dispute does not reverse paid state | Pending reconciliation/audit implementation | Historical-state conservatism |
-| E2E-011 3DS card behavior | Deferred unless claimed | Authentication-required card support |
+| Scenario                                           | Status                                                    | Purpose                                                    |
+|----------------------------------------------------|-----------------------------------------------------------|------------------------------------------------------------|
+| E2E-001 plugin lifecycle                           | Implemented                                               | Install/reload/remove/reload with healthy disposable Kimai |
+| E2E-002 preview causes no Stripe mutation          | Lower-layer implemented; full Kimai/Stripe proof pending  | Preserve preview safety                                    |
+| E2E-003 successful invoice/card/reconciliation     | Pending Phase 4                                           | Canonical business flow                                    |
+| E2E-004 exact amount/currency/metadata             | Payment Link contract subset implemented                  | Prove exact Stripe representation                          |
+| E2E-005 declined card leaves Kimai unpaid          | Pending Phase 4                                           | False-positive prevention                                  |
+| E2E-006 reconciliation idempotence                 | Pending Phase 4                                           | Safe rerun behavior                                        |
+| E2E-007 correct invoice among multiple invoices    | Pending Phase 4                                           | Exact target selection                                     |
+| E2E-008 plugin disabled/manual fallback            | Lower-layer/lifecycle evidence exists                     | Preserve manual operation                                  |
+| E2E-009 orphan recovery                            | Controlled layer implemented; real-system subset optional | Partial-failure recovery                                   |
+| E2E-010 refund/dispute does not reverse paid state | Pending reconciliation/audit implementation               | Historical-state conservatism                              |
+| E2E-011 3DS card behavior                          | Deferred unless claimed                                   | Authentication-required card support                       |
 
 ## Phase 4 Extension
 

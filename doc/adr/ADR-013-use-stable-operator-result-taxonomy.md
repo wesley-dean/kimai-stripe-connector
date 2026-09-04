@@ -93,9 +93,23 @@ Human-readable CLI output SHALL include the result category for material actions
 
 Machine-readable output, if provided, SHALL use stable category identifiers rather than parsing prose.
 
-Exit-code mapping SHALL distinguish successful outcomes (`SUCCESS`, `NO_CHANGE`) from failures requiring retry or operator action.  Exact numeric exit codes may be specified with the first CLI implementation, but their meanings SHALL be documented and tested under ADR-003.
+The first reconciliation command establishes the following process exit-code contract:
 
-A batch command MAY continue processing independent invoices after an item-level conflict/error when doing so is safe.  The final process result SHALL nevertheless communicate that one or more items require attention.
+| Result category | Exit code |
+| --- | ---: |
+| `SUCCESS` | 0 |
+| `NO_CHANGE` | 0 |
+| `RETRYABLE` | 10 |
+| `CONFIGURATION_ERROR` | 20 |
+| `CONFLICT` | 30 |
+| `MANUAL_REVIEW_REQUIRED` | 40 |
+| `INTERNAL_ERROR` | 50 |
+
+These values SHALL remain stable for machine consumers unless a later ADR deliberately changes the contract.
+
+A batch command MAY continue processing independent invoices after an item-level conflict/error when doing so is safe.  For reconciliation, the process exit code SHALL be the highest mapped exit code among all item outcomes.  This preserves independent batch progress while ensuring that any material failure or operator-review condition remains visible to cron, Jenkins, systemd, or another scheduler.
+
+A run-level failure that prevents invoice-level processing SHALL exit with the code mapped to that result category.  Disabled reconciliation and a run with no connector-managed Payment Links are successful `NO_CHANGE` outcomes and SHALL exit zero.
 
 ## Logging
 
@@ -106,7 +120,8 @@ Structured logs SHOULD include the result category plus safe identifiers suffici
 - Tests, runbooks, CLI commands, and logs can share one outcome vocabulary.
 - Expected no-op behavior is not confused with failure.
 - Financial ambiguity is distinguished from transient infrastructure problems.
-- Future categories should be added sparingly because category names may become machine-consumed contracts.
+- Schedulers can distinguish retry, configuration repair, financial conflict, manual review, and internal defects without parsing prose.
+- Future categories and exit-code changes should be added sparingly because both may become machine-consumed contracts.
 
 ## Related Decisions
 

@@ -36,8 +36,5 @@ jobs:
       - name: Validate Composer metadata
         run: composer validate --strict
 
-      - name: Install plugin dependencies
-        run: composer install --no-interaction --prefer-dist
-
       - name: Exercise disposable Kimai lifecycle
         run: bash tests/e2e/run.sh

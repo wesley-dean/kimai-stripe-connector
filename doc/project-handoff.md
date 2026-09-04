@@ -9,8 +9,8 @@ context to resume `kimai-stripe-connector` without the conversation that produce
 the project.
 
 For implementation work, read this document, `implementation-playbook.md`,
-`decisions.md`, and the relevant Accepted ADRs.  For routine operation and incident
-response, use `operator-runbook.md`.
+`decisions.md`, `INSTALL.md`, and the relevant Accepted ADRs.  For routine
+operation and incident response, use `operator-runbook.md`.
 
 Do not merge, release, make the repository public, use live Stripe credentials, or
 perform live financial mutation without explicit owner authorization.
@@ -25,34 +25,37 @@ Phase 2 -> PR #6 configuration, identity, money, metadata, result primitives
 Phase 3 -> PR #8 Payment Link capability + real Stripe sandbox contract probe
 Phase 4 -> PR #9 conservative reconciliation + Kimai paid-state persistence
 Phase 5 -> PR #10 conservative orphan cleanup
+Phase 6 -> PR #11 operator runbook
+Install docs -> PR #12 doc/INSTALL.md + README integration
 ```
 
-Phase 5 was owner-reviewed, accepted, and merged on 2026-09-04.  Its merge commit
-is:
+The current `main` baseline for Phase 7 is the PR #12 merge commit:
 
 ```text
-fc62c2f3db0187b4b0be5b20f08da66ebf203378
+3b1534b2d2c825897dc41e1d6c598922881fc3c6
 ```
 
-Current work is **Phase 6: Operator Runbook** on:
+Current work is the ADR-012 release-artifact portion of **Phase 7: Compatibility
+and Release Evidence** on:
 
 ```text
-docs/phase-6-operator-runbook
+build/phase-7-release-artifact
 ```
 
-with draft PR #11:
+with draft PR #13:
 
 ```text
-docs: add phase 6 operator runbook
+build: prove self-contained release artifact
 ```
 
-PR #11 adds operator guidance for already merged behavior.  It must not broaden
-Stripe permissions, connector mutation authority, supported compatibility, or
-accounting automation.
+The separate hosted Stripe Checkout -> reconciliation -> exact Kimai paid-state
+proof remains a later focused Phase 7 increment.  Do not silently fold live or
+hosted-payment activity into the packaging PR.
 
 All numbered ADRs 000 through 013 are Accepted.  ADR-009 governs reconciliation,
-ADR-010 governs cleanup, ADR-011 governs partial-failure/idempotency behavior, and
-ADR-013 supplies the shared operator result taxonomy and process exit codes.
+ADR-010 governs cleanup, ADR-011 governs partial-failure/idempotency behavior,
+ADR-012 governs self-contained packaging, and ADR-013 supplies the shared operator
+result taxonomy and process exit codes.
 
 ## Architecture Boundaries
 
@@ -109,8 +112,8 @@ Prices:             None
 Everything else:   None
 ```
 
-Payment Link deactivation in Phase 5 uses the already-required Payment Links Write
-permission.  No Phase 5 permission expansion was required.
+Payment Link deactivation uses the already-required Payment Links Write
+permission.  No cleanup permission expansion was required.
 
 The sandbox key is stored in GitHub Actions environment `stripe-sandbox` as secret
 `STRIPE_SANDBOX_RESTRICTED_KEY`.  Never paste it into chat, source, docs, PR
@@ -169,33 +172,17 @@ connector-managed Payment Link
 + successful revalidation immediately before the write
 ```
 
-Automatic cleanup currently recognizes only:
-
-- a managed Payment Link with no Checkout Sessions; or
-- an `expired` + `unpaid` Checkout Session with no PaymentIntent/Charge; or
-- an `expired` + `unpaid` Checkout Session whose PaymentIntent is `canceled` or
-  `requires_payment_method`, has received zero money, has no latest Charge, and has
-  no Charge evidence.
-
 Open, processing, unknown, contradictory, paid, refunded, disputed, or otherwise
 ambiguous evidence is retained.
 
-Before a live deactivation, cleanup repeats:
-
-1. Kimai invoice lookup;
-2. current-instance managed Payment Link discovery;
-3. exact-one-link proof;
-4. Stripe child payment-evidence discovery; and
-5. pure cleanup planning.
-
-The Stripe writer then retrieves the selected target again and verifies exact ID,
-metadata, creation timestamp, and active state before setting:
+Before a live deactivation, cleanup repeats the Kimai lookup, managed-link
+cardinality proof, Stripe child evidence, and pure planning.  The Stripe writer
+then re-retrieves the target and validates identity/metadata/creation/active state
+before the only permitted mutation:
 
 ```text
 active=false
 ```
-
-It cannot delete Payment Links or perform generalized Stripe updates.
 
 ## Operator Result Contract
 
@@ -213,59 +200,91 @@ INTERNAL_ERROR           50
 For independent invoice groups, a batch may continue when safe and returns the
 highest mapped code.
 
-Phase 6 explicitly documents scheduler/operator handling for these categories.
-In particular, `MANUAL_REVIEW_REQUIRED` is an accounting/operator work item rather
-than a condition that should be retried indefinitely.
+`MANUAL_REVIEW_REQUIRED` is an accounting/operator work item rather than a
+condition that should be retried indefinitely.
 
-## Phase 5 Final Validation
+## Merged Operator and Installation Documentation
 
-The final Phase 5 head before merge was:
+`doc/operator-runbook.md` covers routine command use, scheduler handling,
+incidents, credential rotation, orphans/conflicts, outages, disablement/removal,
+and manual fallback.
+
+`doc/INSTALL.md` covers installation, configuration, verification, staged
+enablement, scheduling, upgrade, disablement, removal, troubleshooting, and the
+manual billing fallback.
+
+Both documents preserve fail-closed financial behavior and least privilege.
+
+## Phase 7A: Self-Contained Release Artifact
+
+Draft PR #13 implements ADR-012 through a deterministic allowlist-based packager.
+
+The ordinary build is:
 
 ```text
-e1ef10b08f66e56297a6ec84a70721b9983c6c6b
+make package VERSION=<version>
 ```
 
-Its exact-head validation completed successfully:
+and produces:
 
-- PHP 8.2, 8.3, 8.4, and 8.5: success;
-- PHPUnit: 206 tests / 481 assertions;
-- PHPStan: no errors;
-- PHPCS: clean;
-- PHP-CS-Fixer: zero fixable files;
-- Documentation: success;
-- disposable Kimai E2E: success; and
-- MegaLinter: success with Grype enabled and every active linter at zero errors
-  and zero warnings.
+```text
+dist/KimaiStripeConnectorBundle-<version>.zip
+dist/KimaiStripeConnectorBundle-<version>.zip.sha256
+```
 
-The final MegaLinter run included Grype, Checkov, Trivy, Trivy-SBOM, Syft,
-TruffleHog, secretlint, PHPStan, PHPCS, markdownlint, cspell, action/workflow
-linters, and the remaining configured active linters.
+`tools/package.sh`:
 
-## Phase 6 Operator Runbook
+- copies only runtime source directories and required plugin/project metadata;
+- includes `doc/INSTALL.md`;
+- runs `composer install --no-dev` from the committed lockfile in isolated staging;
+- requires plugin-local `vendor/autoload.php`;
+- rejects tests, CI/tooling files, and known require-dev dependency trees;
+- normalizes permissions and timestamps;
+- sorts archive entries deterministically; and
+- writes the SHA-256 checksum next to the ZIP.
 
-`doc/operator-runbook.md` is the current Phase 6 artifact.
+`make package-check`:
 
-It covers:
+- builds the same version twice;
+- requires byte-for-byte identical ZIPs;
+- verifies the checksum;
+- verifies required and forbidden paths;
+- runs strict Composer validation inside the extracted artifact; and
+- verifies the packaged Stripe SDK autoloads.
 
-- routine reconciliation and cleanup command use;
-- ADR-013 scheduler handling;
-- Stripe paid / Kimai unpaid;
-- Kimai failure after Payment Link creation;
-- conflicting or multiple Payment Links;
-- Stripe restricted-key permission failure;
-- restricted-key rotation;
-- paid Stripe orphans;
-- cleanup uncertainty;
-- reconciliation outages;
-- Kimai compatibility failures after upgrade;
-- disabling connector behavior;
-- removing the plugin;
-- return to manual billing;
-- post-incident recovery; and
-- safe evidence preservation.
+The dedicated Package workflow runs this contract on pull requests and `main`.
+It does not publish a release.
 
-The runbook deliberately treats manual fallback as a supported operating mode, not
-an emergency-only exception.
+Disposable Kimai E2E now builds the same ZIP, extracts it, installs that exact
+artifact under `var/plugins/KimaiStripeConnectorBundle`, reloads Kimai, verifies
+the bundle, exercises disabled reconciliation/cleanup commands, removes it,
+reloads again, and verifies the bundle is gone.
+
+The semver workflow now builds the same self-contained artifact and attaches the
+ZIP plus checksum to future GitHub releases.  GitHub-generated **Source code**
+archives remain source-only and are not treated as ADR-012 installable artifacts.
+
+No release has been published as part of PR #13.
+
+## Phase 7A Evidence So Far
+
+On implementation head:
+
+```text
+81ce0aead87e08b97a95904d64de10d89c660a97
+```
+
+these checks completed successfully before later documentation-only commits moved
+the branch:
+
+- Package workflow: success, including reproducibility/content/checksum checks;
+- PHP workflow: success;
+- Documentation workflow: success; and
+- disposable Kimai E2E: success installing/removing the generated ZIP.
+
+MegaLinter on that head was cancelled because the branch advanced; it was not a
+reported lint failure.  Final acceptance requires every relevant workflow,
+including MegaLinter, to be green on one exact final head.
 
 ## Manual Billing Fallback
 
@@ -284,27 +303,9 @@ track time in Kimai
 Do not infer payment merely from link/session existence.  Preserve actual Stripe
 payment evidence and resolve refunds/disputes as accounting events.
 
-## Production-Shaped Packaging Rule
+## Remaining Real Stripe E2E Gap
 
-The disposable Kimai E2E stages a production-shaped plugin from the committed
-lockfile using:
-
-```text
-composer install --no-dev
-```
-
-Do not copy the repository-root development `vendor/` tree into Kimai.  Production
-packages carry only plugin production dependencies under ADR-012.  Test-only
-`App\...` Kimai mirrors under `tests/stubs/` are development autoload only and must
-never appear in the production-shaped artifact.
-
-A separate Phase 7 follow-up remains: verify that release automation actually
-produces the self-contained production dependency shape required by ADR-012.  Do
-not silently release or rewrite release semantics during Phase 6.
-
-## Real Stripe E2E Gap
-
-The canonical full payment proof remains future Phase 7 evidence:
+The canonical full payment proof remains Phase 7 work:
 
 ```text
 real disposable Kimai invoice
@@ -316,22 +317,22 @@ real disposable Kimai invoice
 -> idempotent rerun
 ```
 
-Do not use live credentials or real money to close this gap.
+Do not use live credentials or real money to close this gap.  The existing
+restricted sandbox key and test mode are the only acceptable Stripe boundary for
+this proof unless the owner explicitly authorizes something else.
 
-## Phase 7 Preview
+## Remaining Phase 7 Work
 
-After Phase 6 is accepted, the implementation playbook moves to compatibility and
-release evidence.  Important known work includes:
+After the release-artifact PR is accepted/merged, important remaining evidence is:
 
-- full hosted sandbox payment -> reconciliation evidence;
-- verifying release automation emits an ADR-012 self-contained production
-  artifact rather than only a source release;
-- supported compatibility evidence beyond the current Kimai 2.65.0 baseline if
-  desired;
-- install/disable/remove evidence;
-- secret/log review;
+- full hosted sandbox payment -> reconciliation -> exact Kimai paid transition;
+- idempotent reconciliation rerun after that real payment;
+- compatibility evidence beyond the Kimai 2.65.0 baseline only if deliberately
+  claimed;
+- final secret/log review;
 - full clean quality/security gates; and
-- resolving the public software-license boundary before any public release.
+- resolving the public software-license boundary before any public release or
+  public repository transition.
 
 Do not publish a release without explicit owner authorization.
 
@@ -339,17 +340,18 @@ Do not publish a release without explicit owner authorization.
 
 A new engineering session should:
 
-1. inspect draft PR #11, its current head, CI, comments, and review threads;
-2. read this handoff, implementation playbook, operator runbook, decision index,
-   ADR-009, ADR-010, ADR-011, ADR-012, ADR-013, and test matrix;
-3. treat merge commit `fc62c2f3db0187b4b0be5b20f08da66ebf203378`
-   as the Phase 6 baseline;
+1. inspect draft PR #13, its current head, CI, comments, reviews, and review
+   threads;
+2. read this handoff, implementation playbook, installation guide, operator
+   runbook, decision index, ADR-009 through ADR-013, and test matrix;
+3. treat merge commit `3b1534b2d2c825897dc41e1d6c598922881fc3c6`
+   as the Phase 7 baseline until PR #13 is merged;
 4. preserve the verified Stripe permission set and stable Kimai instance UUID;
 5. preserve shared exact money and version-1 metadata semantics;
-6. keep cleanup stricter than ordinary reconciliation `NO_CHANGE`;
-7. preserve repeated cleanup revalidation and the narrow `active=false` mutation
-   seam;
-8. keep operator guidance fail-closed and manual-fallback capable;
+6. preserve ADR-012's self-contained plugin-local production dependency model;
+7. keep GitHub source archives distinct from installable self-contained ZIPs;
+8. require final exact-head Package/PHP/Documentation/Kimai E2E/MegaLinter
+   evidence before declaring PR #13 complete;
 9. treat full hosted paid E2E as unproven until actually executed; and
 10. never merge, release, make the repository public, use live Stripe credentials,
     or perform live financial mutation without explicit owner authorization.

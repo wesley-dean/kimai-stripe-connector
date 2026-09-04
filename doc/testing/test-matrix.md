@@ -57,7 +57,7 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 | Planning                 | `PaymentLinkPlannerTest`             | Preview, reuse, create, financial conflict, ambiguity, malformed same-invoice metadata, inactive exact link                 |
 | Request construction     | `PaymentLinkCreateRequestTest`       | Card-only, one-completed-session limit, exact amount/currency, metadata propagation request, deterministic idempotency key  |
 | Orchestration            | `PaymentLinkServiceTest`             | Discovery, reuse, create, definite failure, uncertain commit rediscovery, no blind second create                            |
-| Stripe SDK adapter       | `StripePaymentLinkGatewayTest`       | Pagination, response validation, create failure classification                                                             |
+| Stripe SDK adapter       | `StripePaymentLinkGatewayTest`       | Pagination, response validation, create failure classification                                                              |
 | Controlled HTTP boundary | `StripePaymentLinkHttpBoundaryTest`  | Real locked stripe-php request shape, idempotency header, timeout-after-remote-commit recovery                              |
 | Kimai money boundary     | `KimaiInvoiceMetadataFactoryTest`    | Kimai float conversion through shared exact money policy; binary-artifact precision fails closed                            |
 | Kimai pre-render seam    | `InvoicePaymentLinkSubscriberTest`   | Preview before config/Stripe access, disabled no-op, safe URL hydration, automatic failure stops rendering                  |

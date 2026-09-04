@@ -36,8 +36,7 @@ services:
       TRUSTED_HOSTS: localhost,127.0.0.1,kimai
       ADMINMAIL: e2e@example.invalid
       ADMINPASS: e2e-admin-password
-      DATABASE_URL: >-
-        mysql://kimaiuser:e2e-kimai-password@sqldb/kimai?charset=utf8mb4&serverVersion=8.3.0
+      DATABASE_URL: ${E2E_DATABASE_URL:?E2E_DATABASE_URL must be set}
       KIMAI_STRIPE_CONNECTOR_ENABLED: "false"
     ports:
       - "127.0.0.1::8001"

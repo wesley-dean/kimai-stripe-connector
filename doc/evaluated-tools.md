@@ -105,17 +105,17 @@ The evaluation repeatedly penalized solutions that solved the requirement only b
 
 ## Summary
 
-| Tool | Historical disposition | Primary reason |
-| --- | --- | --- |
-| Harvest | Replace incumbent | Recurring commercial cost was difficult to justify for extremely low usage; not self-hosted/open-source |
-| Kimai self-hosted | **Selected** | Best fit for mature self-hosted time tracking/invoicing; Stripe gap could be handled manually or through a small supported plugin |
-| Kimai Cloud | Not selected | Hosted rather than self-hosted; did not solve the desired Stripe integration path as cleanly as self-hosted Kimai |
-| Miru Cloud | Viable but not selected | Attractive native time-to-invoice-to-Stripe flow, but hosted-service dependence and product/documentation/licensing churn reduced confidence |
-| Miru self-hosted | Rejected for this deployment | The self-hosted path was not judged mature/comfortable enough relative to Kimai and did not outweigh the project's concerns about churn and maintainability |
-| Invoice Ninja self-hosted | Rejected | Native Stripe workflow depended on a publicly reachable client portal, conflicting with the no-public-ingress requirement |
-| Dolibarr | Rejected | Much broader ERP/CRM surface than the small time-and-invoice problem justified |
-| SolidInvoice | Rejected | Did not provide the required native time-tracking workflow |
-| ERPNext | Rejected | Considerably more platform/ERP complexity than the use case justified |
+| Tool                      | Historical disposition       | Primary reason                                                                                                                                              |
+| ------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Harvest                   | Replace incumbent            | Recurring commercial cost was difficult to justify for extremely low usage; not self-hosted/open-source                                                     |
+| Kimai self-hosted         | **Selected**                 | Best fit for mature self-hosted time tracking/invoicing; Stripe gap could be handled manually or through a small supported plugin                           |
+| Kimai Cloud               | Not selected                 | Hosted rather than self-hosted; did not solve the desired Stripe integration path as cleanly as self-hosted Kimai                                           |
+| Miru Cloud                | Viable but not selected      | Attractive native time-to-invoice-to-Stripe flow, but hosted-service dependence and product/documentation/licensing churn reduced confidence                |
+| Miru self-hosted          | Rejected for this deployment | The self-hosted path was not judged mature/comfortable enough relative to Kimai and did not outweigh the project's concerns about churn and maintainability |
+| Invoice Ninja self-hosted | Rejected                     | Native Stripe workflow depended on a publicly reachable client portal, conflicting with the no-public-ingress requirement                                   |
+| Dolibarr                  | Rejected                     | Much broader ERP/CRM surface than the small time-and-invoice problem justified                                                                              |
+| SolidInvoice              | Rejected                     | Did not provide the required native time-tracking workflow                                                                                                  |
+| ERPNext                   | Rejected                     | Considerably more platform/ERP complexity than the use case justified                                                                                       |
 
 The remainder of this document preserves the reasoning in more detail.
 

@@ -210,14 +210,14 @@ Human output includes the ADR-013 category and safe invoice number, planned/appl
 
 Exit-code contract:
 
-| Result | Exit code |
-| --- | ---: |
-| `SUCCESS` / `NO_CHANGE` | 0 |
-| `RETRYABLE` | 10 |
-| `CONFIGURATION_ERROR` | 20 |
-| `CONFLICT` | 30 |
-| `MANUAL_REVIEW_REQUIRED` | 40 |
-| `INTERNAL_ERROR` | 50 |
+| Result                   | Exit code |
+|--------------------------|----------:|
+| `SUCCESS` / `NO_CHANGE`  |         0 |
+| `RETRYABLE`              |        10 |
+| `CONFIGURATION_ERROR`    |        20 |
+| `CONFLICT`               |        30 |
+| `MANUAL_REVIEW_REQUIRED` |        40 |
+| `INTERNAL_ERROR`         |        50 |
 
 Independent invoices may continue after item-level problems when safe.  The final batch process code is the highest mapped code among item results so scheduler-visible attention is never hidden.
 

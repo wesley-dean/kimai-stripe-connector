@@ -44,7 +44,7 @@ final readonly class StripePaymentLinkGateway implements PaymentLinkGateway
             }
 
             return $candidates;
-        } catch (ApiErrorException|UnexpectedValueException|InvalidArgumentException $exception) {
+        } catch (ApiErrorException | UnexpectedValueException | InvalidArgumentException $exception) {
             throw new PaymentLinkGatewayException(
                 'Stripe Payment Link discovery failed.',
                 false,
@@ -71,7 +71,7 @@ final readonly class StripePaymentLinkGateway implements PaymentLinkGateway
                 $commitMayHaveOccurred,
                 $exception,
             );
-        } catch (UnexpectedValueException|InvalidArgumentException $exception) {
+        } catch (UnexpectedValueException | InvalidArgumentException $exception) {
             throw new PaymentLinkGatewayException(
                 'Stripe Payment Link creation returned an unusable response.',
                 true,

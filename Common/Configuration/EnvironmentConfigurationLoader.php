@@ -105,7 +105,9 @@ final class EnvironmentConfigurationLoader
         }
 
         if ($capabilityActive && $stripeCredential === null) {
-            throw new ConfigurationException('A Stripe restricted API credential is required when a Stripe capability is active.');
+            throw new ConfigurationException(
+                'A Stripe restricted API credential is required when a Stripe capability is active.'
+            );
         }
 
         return new ConnectorConfiguration(
@@ -145,7 +147,9 @@ final class EnvironmentConfigurationLoader
         $file = $this->optionalString($environment, self::PREFIX . 'STRIPE_API_KEY_FILE');
 
         if ($direct !== null && $file !== null) {
-            throw new ConfigurationException('Direct and file-backed Stripe credential forms cannot both be configured.');
+            throw new ConfigurationException(
+                'Direct and file-backed Stripe credential forms cannot both be configured.'
+            );
         }
 
         if ($direct !== null) {

@@ -190,15 +190,15 @@ The verified sandbox permission set is documented in [`stripe-restricted-key.md`
 
 Current least-privilege set:
 
-| Stripe resource | Permission |
-|-----------------|------------|
-| Payment Links | Write |
-| Checkout Sessions | Read |
-| Payment Intents | Read |
-| Charges | Read |
-| Products | None |
-| Prices | None |
-| Everything else | None |
+| Stripe resource   | Permission |
+|-------------------|------------|
+| Payment Links     | Write      |
+| Checkout Sessions | Read       |
+| Payment Intents   | Read       |
+| Charges           | Read       |
+| Products          | None       |
+| Prices            | None       |
+| Everything else   | None       |
 
 The sandbox key lives in GitHub Actions environment:
 

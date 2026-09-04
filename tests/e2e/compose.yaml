@@ -1,0 +1,51 @@
+---
+services:
+  sqldb:
+    image: mysql:8.3
+    environment:
+      MYSQL_DATABASE: kimai
+      MYSQL_USER: kimaiuser
+      MYSQL_PASSWORD: e2e-kimai-password
+      MYSQL_ROOT_PASSWORD: e2e-root-password
+    command: --default-storage-engine innodb
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - -uroot
+        - -pe2e-root-password
+        - ping
+        - -h
+        - 127.0.0.1
+        - --silent
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 20s
+    volumes:
+      - mysql:/var/lib/mysql
+
+  kimai:
+    image: kimai/kimai2:2.65.0
+    depends_on:
+      sqldb:
+        condition: service_healthy
+        restart: true
+    environment:
+      APP_SECRET: e2e-only-app-secret-not-for-production
+      TRUSTED_HOSTS: localhost,127.0.0.1,kimai
+      ADMINMAIL: e2e@example.invalid
+      ADMINPASS: e2e-admin-password
+      DATABASE_URL: >-
+        mysql://kimaiuser:e2e-kimai-password@sqldb/kimai?charset=utf8mb4&serverVersion=8.3.0
+      KIMAI_STRIPE_CONNECTOR_ENABLED: "false"
+    ports:
+      - "127.0.0.1::8001"
+    volumes:
+      - data:/opt/kimai/var/data
+      - plugins:/opt/kimai/var/plugins
+
+volumes:
+  data:
+  mysql:
+  plugins:

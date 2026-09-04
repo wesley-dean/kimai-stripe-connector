@@ -18,7 +18,7 @@ Kimai does not need public Internet ingress and Stripe webhooks are not required
 
 ## Project Status
 
-Phases 1 through 6 are merged.  Phase 7 compatibility and release evidence is in progress; draft PR #13 implements and proves the ADR-012 self-contained release-artifact path.
+Phases 1 through 6 are merged.  Phase 7 compatibility and release evidence is in progress; the ADR-012 self-contained release-artifact path is implemented and under final validation.
 
 The repository now contains:
 

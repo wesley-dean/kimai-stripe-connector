@@ -213,7 +213,7 @@ final class ReconciliationPlannerTest extends TestCase
         self::assertSame(OperatorResult::MANUAL_REVIEW_REQUIRED, $plan->result());
     }
 
-    public function testMultipleExactCandidatesRequireManualReview(): void
+    public function testMultipleExactCandidatesProduceConflict(): void
     {
         $plan = (new ReconciliationPlanner())->plan(
             false,
@@ -221,7 +221,7 @@ final class ReconciliationPlannerTest extends TestCase
             [$this->candidate(linkId: 'plink_1'), $this->candidate(linkId: 'plink_2')],
         );
 
-        self::assertSame(OperatorResult::MANUAL_REVIEW_REQUIRED, $plan->result());
+        self::assertSame(OperatorResult::CONFLICT, $plan->result());
     }
 
     public function testChildMetadataMismatchRequiresManualReview(): void

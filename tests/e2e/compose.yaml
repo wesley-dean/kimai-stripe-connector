@@ -33,7 +33,8 @@ services:
         restart: true
     environment:
       APP_SECRET: e2e-only-app-secret-not-for-production
-      TRUSTED_HOSTS: localhost,127.0.0.1,kimai
+      # Kimai expects TRUSTED_HOSTS as a pipe-separated regular expression.
+      TRUSTED_HOSTS: 'localhost|127\.0\.0\.1|kimai'
       ADMINMAIL: e2e@example.invalid
       ADMINPASS: e2e-admin-password
       DATABASE_URL: ${E2E_DATABASE_URL:?E2E_DATABASE_URL must be set}

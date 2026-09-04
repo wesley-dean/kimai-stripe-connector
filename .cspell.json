@@ -42,6 +42,7 @@
     "adrctl",
     "analyse",
     "andstor",
+    "artipacked",
     "autoload",
     "autoloader",
     "autowire",

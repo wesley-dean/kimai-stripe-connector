@@ -42,6 +42,7 @@ final class CleanupServiceTest extends TestCase
         self::assertSame(OperatorResult::SUCCESS, $outcomes[0]->result());
         self::assertTrue($outcomes[0]->wouldChange());
         self::assertFalse($outcomes[0]->changed());
+        self::assertSame(1, $reader->linkRequests);
         self::assertSame([], $writer->deactivateCalls);
         self::assertSame(['plink_1'], $reader->candidateRequests);
     }
@@ -57,6 +58,7 @@ final class CleanupServiceTest extends TestCase
 
         self::assertSame(OperatorResult::SUCCESS, $outcomes[0]->result());
         self::assertTrue($outcomes[0]->changed());
+        self::assertSame(2, $reader->linkRequests);
         self::assertSame(['plink_1', 'plink_1'], $reader->candidateRequests);
         self::assertSame(['plink_1'], $writer->deactivateCalls);
     }
@@ -74,6 +76,7 @@ final class CleanupServiceTest extends TestCase
         $outcomes = $service->cleanup($this->instanceId(), 7, false, self::NOW);
 
         self::assertSame(OperatorResult::NO_CHANGE, $outcomes[0]->result());
+        self::assertSame(1, $reader->linkRequests);
         self::assertSame([], $reader->candidateRequests);
         self::assertSame([], $writer->deactivateCalls);
     }
@@ -90,7 +93,32 @@ final class CleanupServiceTest extends TestCase
 
         self::assertSame(OperatorResult::NO_CHANGE, $outcomes[0]->result());
         self::assertSame(2, $store->lookupCount);
+        self::assertSame(1, $reader->linkRequests);
         self::assertSame(['plink_1'], $reader->candidateRequests);
+        self::assertSame([], $writer->deactivateCalls);
+    }
+
+    public function testCompetingPaymentLinkAppearingDuringRevalidationPreventsDeactivation(): void
+    {
+        $first = $this->link();
+        $second = new ManagedPaymentLinkEvidence(
+            'plink_2',
+            $this->metadata(),
+            self::NOW - (8 * self::DAY),
+            true,
+        );
+        $reader = new StubReconciliationStripeGateway(
+            [$first],
+            linkSequences: [[$first], [$first, $second]],
+        );
+        $writer = new StubCleanupStripeGateway();
+        $service = $this->service($reader, new InMemoryReconciliationInvoiceStore(), $writer);
+
+        $outcomes = $service->cleanup($this->instanceId(), 7, false, self::NOW);
+
+        self::assertSame(OperatorResult::CONFLICT, $outcomes[0]->result());
+        self::assertSame(2, $reader->linkRequests);
+        self::assertSame(['plink_1', 'plink_1', 'plink_2'], $reader->candidateRequests);
         self::assertSame([], $writer->deactivateCalls);
     }
 
@@ -109,6 +137,7 @@ final class CleanupServiceTest extends TestCase
         $outcomes = $service->cleanup($this->instanceId(), 7, false, self::NOW);
 
         self::assertSame(OperatorResult::MANUAL_REVIEW_REQUIRED, $outcomes[0]->result());
+        self::assertSame(2, $reader->linkRequests);
         self::assertSame(['plink_1', 'plink_1'], $reader->candidateRequests);
         self::assertSame([], $writer->deactivateCalls);
     }

@@ -24,6 +24,7 @@ final class StripeReconciliationHttpBoundaryTest extends TestCase
 {
     private const INSTANCE_ID = '018f6f56-8f4e-7c73-9a62-2f5e4f51b9e1';
     private const OTHER_INSTANCE_ID = '0190a7b3-ec4f-7a31-8a0e-31fa10b7f6d8';
+    private const PAYMENT_LINK_CREATED_AT = 1_788_000_000;
     private const CHARGE_CREATED_AT = 1_788_541_200;
 
     private ClientInterface $originalHttpClient;
@@ -68,6 +69,8 @@ final class StripeReconciliationHttpBoundaryTest extends TestCase
         self::assertCount(1, $links);
         self::assertSame('plink_1', $links[0]->id());
         self::assertSame($metadata->toStripeMetadata(), $links[0]->metadata()->toStripeMetadata());
+        self::assertSame(self::PAYMENT_LINK_CREATED_AT, $links[0]->createdAt());
+        self::assertTrue($links[0]->active());
 
         $candidates = $gateway->listCandidates($links[0]);
 
@@ -193,6 +196,7 @@ final class StripeReconciliationHttpBoundaryTest extends TestCase
             'id' => $id,
             'object' => 'payment_link',
             'active' => true,
+            'created' => self::PAYMENT_LINK_CREATED_AT,
             'url' => 'https://buy.stripe.com/test_' . $id,
             'metadata' => $metadata,
         ];

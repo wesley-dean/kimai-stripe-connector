@@ -1,6 +1,9 @@
 ---
-# Don't use MegaLinter to test reports or generated artifacts.
-ADDITIONAL_EXCLUDED_DIRECTORIES: [report, megalinter-reports, .git, site]
+# Don't use MegaLinter to test reports, generated artifacts, or Composer output.
+# Repository-level scanners do not all honor .gitignore, so vendor must also be
+# excluded explicitly even though file-oriented linters already ignore it.
+ADDITIONAL_EXCLUDED_DIRECTORIES:
+  [report, megalinter-reports, .git, site, vendor]
 
 # Don't scan files listed in .gitignore (vendor, build output, generated docs, etc.).
 IGNORE_GITIGNORED_FILES: true
@@ -59,8 +62,11 @@ ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
 # Use Prettier for JavaScript code formatting.
 JAVASCRIPT_DEFAULT_STYLE: prettier
 
-# MegaLinter supports SARIF reporters; upload is gated by repository visibility.
-SARIF_REPORTER: true
+# This repository is private and does not upload MegaLinter SARIF.  More
+# importantly, the project-locked PHPStan does not provide a SARIF formatter, so
+# enabling the reporter causes MegaLinter to fail before PHPStan analyzes code.
+# Disabling this reporter changes output format only; PHPStan remains blocking.
+SARIF_REPORTER: false
 
 # Don't scan the .git directory GitHub creates at runtime.
 REPOSITORY_TRUFFLEHOG_ARGUMENTS: "--exclude-paths=.trufflehogignore"

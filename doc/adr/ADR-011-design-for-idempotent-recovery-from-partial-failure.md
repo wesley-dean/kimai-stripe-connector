@@ -55,6 +55,12 @@ The initial reconciliation command SHALL NOT claim distributed locking or serial
 
 Two overlapping reconciliation processes may both observe the same unpaid invoice before either commits.  Because reconciliation is Stripe-read-only and the only automatic Kimai transition is monotonic unpaid-to-paid with the same proven payment date, those writes converge on the same financial state.  Duplicate Kimai update-event execution remains possible, so overlapping runs are an operational condition to avoid rather than a behavior the connector promises to serialize internally.
 
+Cleanup also SHALL NOT claim a transaction spanning Kimai and Stripe or connector-owned distributed locking.  Before Payment Link deactivation it SHALL re-query Kimai, rediscover the current managed Payment Link set, rediscover Stripe payment evidence, and re-run the conservative cleanup decision.  Its Stripe mutation boundary SHALL then retrieve the selected Payment Link and revalidate exact identity/metadata before setting `active=false`.
+
+Cleanup deactivation is a monotonic idempotent Stripe mutation.  If an API failure leaves the connector uncertain whether `active=false` committed, the operation SHALL be reported as retryable rather than followed by a different destructive action.  A later run can rediscover the Payment Link and treat an already-inactive link as a no-op.
+
+A small remote race remains possible between the final Stripe read and Stripe's update because Kimai and Stripe do not share a transaction.  The connector reduces the preventable race window through repeated evidence reads but does not promise impossible cross-system atomicity.  Operators SHOULD avoid overlapping cleanup jobs, and an unexpected late payment or other anomaly SHALL be retained/surfaced by subsequent reconciliation rather than causing an automatic historical paid-state reversal.
+
 ## Consequences
 
 - Stripe may contain recoverable orphan objects after Kimai failures.
@@ -62,7 +68,9 @@ Two overlapping reconciliation processes may both observe the same unpaid invoic
 - Some ambiguous states require manual review instead of automatic repair.
 - Retry and timeout paths are first-class test cases, not rare edge cases.
 - Reconciliation remains financially idempotent without introducing connector-owned distributed-lock state.
+- Cleanup uses repeated revalidation and one-way deactivation rather than connector-owned transaction state.
 - Operators must avoid overlapping reconciliation jobs when duplicate Kimai update-event execution would be undesirable.
+- Operators should also avoid overlapping cleanup jobs even though repeated `active=false` application converges safely.
 
 ## Considered Alternatives
 
@@ -85,6 +93,10 @@ Rejected because Stripe metadata and Kimai state provide a simpler recovery mech
 ### Add connector-owned distributed locking for reconciliation immediately
 
 Rejected for the initial release because reconciliation performs no Stripe mutation, the Kimai transition is monotonic/idempotent, and introducing shared lock state would add deployment coupling without improving the underlying payment evidence.  Scheduler-level non-overlap plus last-moment Kimai revalidation is the smaller initial contract.
+
+### Add connector-owned distributed locking for cleanup immediately
+
+Rejected because cleanup is low-frequency hygiene work, the mutation is monotonic/idempotent, and conservative repeated reads materially reduce the race window without adding deployment-coupled state.  A later operational requirement for stronger serialization can use scheduler-level locking or justify a new decision.
 
 ## Related Decisions
 

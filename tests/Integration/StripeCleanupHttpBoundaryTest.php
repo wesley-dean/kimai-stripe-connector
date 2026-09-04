@@ -63,7 +63,7 @@ final class StripeCleanupHttpBoundaryTest extends TestCase
         self::assertStringEndsWith('/v1/payment_links/plink_1', $http->requests[0]['url']);
         self::assertSame('post', $http->requests[1]['method']);
         self::assertStringEndsWith('/v1/payment_links/plink_1', $http->requests[1]['url']);
-        self::assertSame(['active' => false], $http->requests[1]['params']);
+        self::assertSame(['active' => 'false'], $http->requests[1]['params']);
     }
 
     public function testAlreadyInactivePaymentLinkIsIdempotentNoChange(): void

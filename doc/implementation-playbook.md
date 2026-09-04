@@ -96,6 +96,7 @@ That means:
 Unless superseded by a later Accepted ADR:
 
 - one Kimai plugin contains two independently disableable capabilities;
+- cleanup is reconciliation-side maintenance and does not create a third independently disableable capability in the initial architecture;
 - Kimai remains authoritative for invoice/time/business state;
 - Stripe remains authoritative for payment movement and Stripe payment objects;
 - the connector owns only correlation and conservative automation logic;
@@ -109,7 +110,7 @@ Unless superseded by a later Accepted ADR:
 - false negatives are preferred to false-positive payment reconciliation;
 - automatic paid-to-unpaid reversal is not part of the initial model;
 - paid Stripe orphans are accounting exceptions, not cleanup garbage;
-- cleanup retains uncertain objects;
+- cleanup retains uncertain objects and requires positive terminal-unpaid evidence before automatic deactivation;
 - no connector-owned payment ledger is introduced without new evidence and an ADR;
 - implementation state must survive ordinary container replacement; and
 - Payment Link/reconciliation responsibilities remain internally separated even though they share one package.
@@ -154,6 +155,8 @@ Never commit Stripe credentials.
 
 If both direct and file-backed Stripe secret forms are supplied, fail configuration validation rather than silently choosing precedence unless a later Accepted decision changes that rule.
 
+Cleanup uses the global connector and reconciliation capability switches plus `KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS`; do not invent `KIMAI_STRIPE_CONNECTOR_CLEANUP_ENABLED` without an explicit architecture change.
+
 ## Testing Rule
 
 ADR-003 is mandatory.
@@ -167,6 +170,8 @@ change Stripe API parameters       -> update tests
 change metadata contract           -> update tests
 change money conversion            -> update tests
 change reconciliation criteria     -> update tests
+change cleanup eligibility         -> update tests
+change cleanup revalidation        -> update race/regression tests
 fix retry bug                      -> regression test
 fix documentation wording          -> no artificial unit test required
 change comment only                -> no artificial unit test required
@@ -186,11 +191,13 @@ Use for bundle loading, DI wiring, events, invoice model/hydration/rendering, an
 
 ### Controlled Stripe/network integration
 
-Use for deterministic timeouts, timeout-after-commit, pagination, rate limits, malformed responses, concurrency, and hostile object states.
+Use for deterministic timeouts, timeout-after-commit, pagination, rate limits, malformed responses, concurrency, cleanup request construction, and hostile object states.
 
 ### Real Stripe sandbox E2E
 
-Use sparingly for behavior only real Stripe can prove: Payment Link creation, actual metadata propagation, hosted card Checkout, real object relationships, and exact reconciliation.
+Use sparingly for behavior only real Stripe can prove: Payment Link creation/deactivation permission, actual metadata propagation, hosted card Checkout, real object relationships, and exact reconciliation.
+
+Do not move deterministic cleanup eligibility or race testing into real Stripe merely because cleanup mutates Stripe.  The real sandbox should prove the remote contract; controlled tests should prove adversarial decision behavior.
 
 ## Disposable Kimai Requirement
 
@@ -210,6 +217,8 @@ fresh Compose project
 -> install production-shaped stage into var/plugins
 -> kimai:reload
 -> verify plugin lifecycle
+-> invoke disabled reconciliation and cleanup --dry-run commands
+-> require NO_CHANGE without Stripe credential/access
 -> remove plugin
 -> kimai:reload
 -> destroy containers/networks/volumes and local staging directory
@@ -242,6 +251,8 @@ The repository also has:
 - pre-commit secret/file checks;
 - Dependabot for GitHub Actions and Composer; and
 - semver/release automation.
+
+A temporary linter/scanner disable may be used only as an explicit development-speed exception understood by the owner; do not reinterpret such an exception as a permanent quality-policy change.
 
 Do not weaken a quality gate to make a change pass unless the finding is genuinely invalid and the rationale is documented.
 
@@ -291,14 +302,14 @@ Do not merge without explicit authorization unless existing deliberate repositor
 
 ## Implementation Phases
 
-The architectural preparation phase is substantially complete.  Begin at the earliest phase whose work is not already present on the current branch/main.
+The architectural preparation phase is complete enough for implementation.  Phases 1 through 4 are merged.  Current work is Phase 5 on draft PR #10 unless repository state shows that PR has since been accepted/merged.
 
-### Phase 1: Foundation and repository scaffold
+### Phase 1: Foundation and repository scaffold — merged
 
-Expected outcomes:
+Established:
 
 - valid Kimai plugin bundle skeleton;
-- Composer package metadata;
+- Composer package metadata and committed lockfile;
 - plugin-local dependency model;
 - PHPUnit/static-analysis setup;
 - PHP-compatible linting;
@@ -306,70 +317,74 @@ Expected outcomes:
 - disposable Kimai lifecycle E2E;
 - Doxygen reference generation;
 - build artifacts ignored; and
-- all workflows clean.
+- clean workflow baseline.
 
-The `chore/implementation-prep` branch was created to establish these pieces.  Inspect current repository state rather than assuming this phase is still incomplete.
+### Phase 2: Configuration, identity, money, metadata, and result primitives — merged
 
-A committed `composer.lock` is desired for reproducible development/release packaging.  If missing, generate and commit it before relying on the package for release reproducibility.
-
-### Phase 2: Configuration, identity, money, metadata, and result primitives
-
-Implement before real Stripe mutation:
+Established:
 
 - environment parsing/validation;
 - direct/file-backed Stripe credential resolution;
 - stable Kimai instance UUID;
-- exact decimal-to-integer-minor-unit conversion for the accepted currency scope;
-- version-1 metadata value objects/validation;
+- exact decimal/minor-unit money primitives;
+- version-1 metadata validation;
 - safe logging/redaction;
-- result taxonomy from ADR-013; and
-- Stripe client construction/app identification without making a payment mutation.
+- ADR-013 result taxonomy; and
+- Stripe client construction/app identification.
 
-Implement relevant `CFG-*`, `MNY-*`, metadata, and `THR-*` tests.
+### Phase 3: Payment Link capability — merged
 
-### Phase 3: Payment Link capability
-
-Implement through ADR-006's supported Kimai seams.
-
-Required behaviors include:
+Established through ADR-006's supported Kimai seams:
 
 - preview -> zero Stripe mutation;
 - exact compatible existing link -> reuse;
 - no exact link -> create one;
 - amount/currency/identity conflict -> stop;
 - ambiguous candidates -> fail closed;
-- expose URL to Kimai invoice renderer;
-- safe retry/idempotency;
-- timeout-after-commit recovery; and
-- recoverable Stripe orphan after Kimai failure.
+- URL exposure to Kimai invoice rendering;
+- safe retry/idempotency and timeout-after-commit recovery; and
+- representative real Stripe sandbox contract evidence.
 
-Add representative real Stripe sandbox E2E after deterministic lower-layer behavior exists.
+### Phase 4: Reconciliation — merged
 
-### Phase 4: Reconciliation
+Established:
 
-Implement a deterministic external command suitable for cron/Jenkins/systemd/manual execution.
-
-Define/test:
-
-- command name;
+- deterministic `kimai:stripe:reconcile` command for cron/Jenkins/systemd/manual execution;
 - `--dry-run`;
-- exit codes;
-- human output;
-- structured output if justified;
-- pagination;
-- batch-error behavior;
-- concurrency/locking expectations; and
-- ADR-013 result categories.
+- ADR-013 exit codes and human output;
+- pagination and read-only Stripe evidence traversal;
+- safe batch-error behavior;
+- fail-closed paid-state planning;
+- Kimai last-moment persistence revalidation;
+- Stripe Charge-derived payment date; and
+- documented no-internal-lock concurrency contract.
 
-Follow ADR-009 exactly: strong evidence only, fail closed, no automatic post-payment reversal.
+Do not reopen Phase 4 merely because a stronger full hosted-payment E2E remains future evidence.  That gap is explicitly documented and should be addressed in the appropriate later evidence/release phase unless new evidence reveals a Phase 4 defect.
 
-### Phase 5: Cleanup
+### Phase 5: Cleanup — current draft work
 
-Implement conservative orphan inspection/deactivation under ADR-010.
+Implement and validate conservative orphan inspection/deactivation under ADR-010.
 
-Provide dry-run first.
+Required current contract:
 
-Cleanup is never allowed to guess through Kimai unavailability or payment ambiguity.
+- `kimai:stripe:cleanup` plus `--dry-run`;
+- global + reconciliation capability enablement, with no third cleanup switch initially;
+- successful Kimai lookup proving invoice absence;
+- exactly one current-instance managed Payment Link for the logical invoice;
+- inclusive configured grace-age threshold;
+- current active Payment Link state;
+- positive proof of terminal/unpaid Stripe evidence rather than mere lack of success;
+- paid/open/processing/unknown/contradictory evidence retained;
+- repeat Kimai lookup before mutation;
+- repeat managed Payment Link discovery before mutation;
+- repeat child payment-evidence discovery before mutation;
+- repeat pure eligibility planning before mutation;
+- final Stripe target retrieve/metadata/creation/active-state validation;
+- only permitted Stripe mutation is monotonic `active=false`;
+- retryable uncertain update outcome; and
+- ADR-013 batch/result semantics.
+
+Cleanup is never allowed to guess through Kimai unavailability, payment ambiguity, or stale one-link cardinality evidence.
 
 ### Phase 6: Operator runbook
 
@@ -400,6 +415,8 @@ Before a supported release claim:
 - Doxygen has zero warnings;
 - documentation matches behavior; and
 - dependency/security checks are clean.
+
+Also verify that release automation actually produces the self-contained production dependency shape required by ADR-012; a source-only GitHub release is not sufficient evidence merely because the disposable E2E staging path is production-shaped.
 
 ADR acceptance does not mean implementation evidence can be skipped.
 

@@ -25,7 +25,7 @@ Unless the project owner narrows the task, a session following this playbook SHO
 5. make reversible engineering decisions consistent with Accepted ADRs without repeatedly asking permission;
 6. implement the smallest coherent increment;
 7. add/update appropriate automated tests under ADR-003;
-8. run all applicable unit, static, integration, E2E, documentation, and lint checks;
+8. run all applicable unit, static, integration, package, E2E, documentation, and lint checks;
 9. require MegaLinter to finish with zero errors and zero warnings;
 10. update ADRs/contracts/threat model/handoff when behavior or assumptions materially change;
 11. use Conventional Commit messages;
@@ -41,17 +41,18 @@ Read in this order:
 1. [`AGENTS.md`](../AGENTS.md)
 2. [`decisions.md`](decisions.md)
 3. [`project-handoff.md`](project-handoff.md)
-4. [`operator-runbook.md`](operator-runbook.md)
-5. [`configuration.md`](configuration.md)
-6. [`threat-model.md`](threat-model.md)
-7. [`documentation.md`](documentation.md)
-8. [`testing/test-matrix.md`](testing/test-matrix.md)
-9. [`testing/preimplementation-mock-exercise.md`](testing/preimplementation-mock-exercise.md)
-10. [`testing/e2e-stripe-sandbox.md`](testing/e2e-stripe-sandbox.md)
-11. [`reference-hosting-environment.md`](reference-hosting-environment.md)
-12. [`evaluated-tools.md`](evaluated-tools.md) when revisiting product selection/history
-13. [`README.md`](../README.md)
-14. relevant repository automation/configuration
+4. [`INSTALL.md`](INSTALL.md)
+5. [`operator-runbook.md`](operator-runbook.md)
+6. [`configuration.md`](configuration.md)
+7. [`threat-model.md`](threat-model.md)
+8. [`documentation.md`](documentation.md)
+9. [`testing/test-matrix.md`](testing/test-matrix.md)
+10. [`testing/preimplementation-mock-exercise.md`](testing/preimplementation-mock-exercise.md)
+11. [`testing/e2e-stripe-sandbox.md`](testing/e2e-stripe-sandbox.md)
+12. [`reference-hosting-environment.md`](reference-hosting-environment.md)
+13. [`evaluated-tools.md`](evaluated-tools.md) when revisiting product selection/history
+14. [`README.md`](../README.md)
+15. relevant repository automation/configuration
 
 Use `decisions.md` to locate the ADRs that govern the task.  Read the actual ADR before implementing or changing that decision.
 
@@ -162,7 +163,7 @@ Cleanup uses the global connector and reconciliation capability switches plus `K
 
 ADR-003 is mandatory.
 
-An addition, behavior change, bug fix, API change, compatibility patch, retry change, financial-state change, or security-sensitive code change requires appropriate automated tests when reasonably testable.
+An addition, behavior change, bug fix, API change, compatibility patch, retry change, financial-state change, package/release change, or security-sensitive code change requires appropriate automated tests when reasonably testable.
 
 Examples:
 
@@ -173,6 +174,7 @@ change money conversion            -> update tests
 change reconciliation criteria     -> update tests
 change cleanup eligibility         -> update tests
 change cleanup revalidation        -> update race/regression tests
+change release package shape       -> update package/E2E tests
 fix retry bug                      -> regression test
 fix documentation wording          -> no artificial unit test required
 change comment only                -> no artificial unit test required
@@ -194,6 +196,12 @@ Use for bundle loading, DI wiring, events, invoice model/hydration/rendering, an
 
 Use for deterministic timeouts, timeout-after-commit, pagination, rate limits, malformed responses, concurrency, cleanup request construction, and hostile object states.
 
+### Package/release evidence
+
+Use for ADR-012 runtime contents, production-only dependencies, checksum behavior,
+byte-for-byte reproducibility, development-file exclusion, and installable archive
+shape.  Package CI must not publish a release merely to prove packaging.
+
 ### Real Stripe sandbox E2E
 
 Use sparingly for behavior only real Stripe can prove: Payment Link creation/deactivation permission, actual metadata propagation, hosted card Checkout, real object relationships, and exact reconciliation.
@@ -214,18 +222,19 @@ Current harness behavior:
 fresh Compose project
 -> fresh MySQL/Kimai/plugin volumes
 -> Kimai 2.65.0
--> stage checked-out source from composer.lock with --no-dev
--> install production-shaped stage into var/plugins
+-> build ADR-012 self-contained ZIP from composer.lock with --no-dev
+-> extract the ZIP
+-> install that exact packaged plugin into var/plugins
 -> kimai:reload
 -> verify plugin lifecycle
 -> invoke disabled reconciliation and cleanup --dry-run commands
 -> require NO_CHANGE without Stripe credential/access
 -> remove plugin
 -> kimai:reload
--> destroy containers/networks/volumes and local staging directory
+-> destroy containers/networks/volumes and local package staging
 ```
 
-The E2E harness deliberately does not copy the repository-root development `vendor/` tree into Kimai.  It builds an isolated runtime dependency tree from the committed lockfile so the lifecycle test exercises the same dependency shape intended for the self-contained production plugin artifact.
+The E2E harness deliberately does not copy the repository-root development `vendor/` tree into Kimai.  It installs the generated release-artifact shape so lifecycle evidence and release packaging cannot silently diverge.
 
 `tests/e2e/run.sh` owns cleanup via a shell trap and runs `docker compose down --volumes --remove-orphans`.
 
@@ -247,7 +256,8 @@ A green workflow badge is not sufficient when the report contains warnings.  Fix
 The repository also has:
 
 - PHP 8.2–8.5 unit/static-analysis CI;
-- disposable Kimai E2E CI;
+- deterministic Package CI;
+- disposable Kimai E2E CI using the generated package ZIP;
 - Doxygen generation CI;
 - pre-commit secret/file checks;
 - Dependabot for GitHub Actions and Composer; and
@@ -276,6 +286,7 @@ When changing:
 - architecture -> update/add ADR and `decisions.md`;
 - configuration -> update `configuration.md`;
 - trust boundary/credential/external interface/destructive behavior -> update `threat-model.md`;
+- installation/upgrade/removal -> update `INSTALL.md`;
 - operator procedures/incident response -> update `operator-runbook.md`;
 - test architecture -> update `testing/test-matrix.md` or related testing docs;
 - packaging/compatibility -> update the governing ADR and handoff;
@@ -304,7 +315,7 @@ Do not merge without explicit authorization unless existing deliberate repositor
 
 ## Implementation Phases
 
-The architectural preparation and functional implementation through Phase 5 are merged.  Current work is Phase 6 operator documentation on draft PR #11 unless repository state shows that PR has since been accepted/merged.
+The architectural preparation, functional implementation, operator runbook, and installation documentation through Phase 6 are merged.  Current work is **Phase 7: compatibility and release evidence**.
 
 ### Phase 1: Foundation and repository scaffold — merged
 
@@ -361,7 +372,7 @@ Established:
 - Stripe Charge-derived payment date; and
 - documented no-internal-lock concurrency contract.
 
-Do not reopen Phase 4 merely because a stronger full hosted-payment E2E remains future evidence.  That gap is explicitly documented and should be addressed in the appropriate later evidence/release phase unless new evidence reveals a Phase 4 defect.
+Do not reopen Phase 4 merely because a stronger full hosted-payment E2E remains future evidence.  That gap is explicitly documented and belongs to Phase 7 unless new evidence reveals a Phase 4 defect.
 
 ### Phase 5: Cleanup — merged
 
@@ -386,31 +397,49 @@ Established under ADR-010:
 
 Phase 5 was owner-reviewed and merged through PR #10.  Cleanup is never allowed to guess through Kimai unavailability, payment ambiguity, or stale one-link cardinality evidence.
 
-### Phase 6: Operator runbook — current draft work
+### Phase 6: Operator/install documentation — merged
 
-Document and validate operational procedures for:
+Established:
 
-- routine reconciliation and cleanup command use;
-- scheduler handling of ADR-013 exit codes;
-- Stripe paid / Kimai unpaid;
-- Kimai failure after link creation;
-- conflicting/multiple links;
-- credential permission failure/rotation;
-- paid orphan;
-- cleanup uncertainty;
-- reconciliation outage;
-- Kimai compatibility failure after upgrade;
-- disabling/removing the plugin; and
-- return to manual billing.
+- operator runbook for routine reconciliation/cleanup and ADR-013 scheduler handling;
+- incident procedures for paid-state mismatches, orphans, conflicts, outages, and credential rotation;
+- disable/remove/manual-fallback procedures; and
+- `doc/INSTALL.md` for installation, configuration, verification, upgrade, disablement, removal, and troubleshooting.
 
-The runbook must preserve the same fail-closed boundaries as the implementation.  It must not teach operators to force automatic state by editing metadata, delete paid evidence, broaden Stripe permissions without need, or treat retries as a substitute for human accounting judgment.
+The documentation preserves the same fail-closed boundaries as the implementation.  It does not teach operators to force state by editing metadata, delete paid evidence, broaden Stripe permissions without need, or treat retries as a substitute for human accounting judgment.
 
-### Phase 7: Compatibility and release evidence
+### Phase 7: Compatibility and release evidence — current work
 
-Before a supported release claim:
+Phase 7 is intentionally split into focused evidence increments.
 
-- all applicable unit/static/integration/fake-Stripe tests pass;
-- Kimai lifecycle E2E passes;
+Current release-artifact work implements ADR-012 by:
+
+- constructing the production package from an explicit runtime allowlist;
+- installing production-only Composer dependencies from the committed lockfile;
+- producing `KimaiStripeConnectorBundle-<version>.zip` plus SHA-256 checksum;
+- requiring byte-for-byte reproducibility for identical source/dependency inputs;
+- rejecting tests, CI/tooling files, and require-dev dependency trees from the artifact;
+- validating the package through a dedicated Package workflow;
+- installing the exact generated ZIP in disposable Kimai E2E; and
+- attaching the ZIP/checksum to future semver releases rather than relying on GitHub source archives.
+
+The separate hosted-payment evidence increment remains:
+
+```text
+real disposable Kimai invoice
+-> connector-created Payment Link
+-> Stripe-hosted sandbox card Checkout
+-> real Session / PaymentIntent / Charge evidence
+-> reconciliation command
+-> exact Kimai paid-state transition
+-> idempotent rerun
+```
+
+Before a supported release claim, verify the complete applicable set:
+
+- all unit/static/integration/fake-Stripe tests pass;
+- package/reproducibility checks pass;
+- Kimai lifecycle E2E passes using the packaged ZIP;
 - representative real Stripe sandbox E2E passes;
 - preview suppression is verified;
 - install/disable/remove is verified;
@@ -419,8 +448,6 @@ Before a supported release claim:
 - Doxygen has zero warnings;
 - documentation matches behavior; and
 - dependency/security checks are clean.
-
-Also verify that release automation actually produces the self-contained production dependency shape required by ADR-012; a source-only GitHub release is not sufficient evidence merely because the disposable E2E staging path is production-shaped.
 
 ADR acceptance does not mean implementation evidence can be skipped.
 

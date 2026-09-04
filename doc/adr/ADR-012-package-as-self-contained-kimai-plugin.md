@@ -63,6 +63,29 @@ Unit tests, static analysis, documentation generation, and release packaging SHO
 
 The plugin SHALL identify itself to the Stripe PHP SDK using Stripe's plugin application-identification mechanism before sending API requests.
 
+## Implementation Evidence
+
+Phase 7 implements the release shape through an allowlist-based production packager rather than copying the repository and trying to exclude every development file.  The packaged root contains the maintained runtime source directories, bundle entrypoint, Composer metadata/lockfile, selected project/install metadata, and a plugin-local production `vendor/` generated with `composer install --no-dev`.
+
+The ordinary build command is:
+
+```text
+make package VERSION=<version>
+```
+
+It creates:
+
+```text
+dist/KimaiStripeConnectorBundle-<version>.zip
+dist/KimaiStripeConnectorBundle-<version>.zip.sha256
+```
+
+`make package-check` builds the same version twice, requires byte-for-byte identical ZIP files, verifies the SHA-256 checksum, inspects required/forbidden paths, validates packaged Composer metadata, and proves the packaged Stripe SDK autoloads.  Package permissions, timestamps, and ZIP entry order are normalized so archive metadata does not defeat reproducibility.
+
+Disposable Kimai lifecycle E2E builds the same ZIP shape, extracts it, installs that extracted plugin under `var/plugins/KimaiStripeConnectorBundle/`, reloads Kimai, exercises the disabled reconciliation/cleanup commands, removes the plugin, and verifies the bundle no longer resolves.  The E2E path therefore validates the actual release package rather than a parallel staging approximation.
+
+The semver workflow builds the self-contained package from the calculated release commit, verifies its checksum, and attaches both the ZIP and checksum to the GitHub release.  GitHub-generated source archives remain source archives and are not treated as installable ADR-012 artifacts.
+
 ## Consequences
 
 - The plugin remains removable without dirtying Kimai's root dependency graph.

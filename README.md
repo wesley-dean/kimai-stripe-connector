@@ -18,15 +18,16 @@ Kimai does not need public Internet ingress and Stripe webhooks are not required
 
 ## Project Status
 
-Phases 1 through 6 are merged.  Phase 7 compatibility and release evidence is the next project boundary.
+Phases 1 through 6 are merged.  Phase 7 compatibility and release evidence is in progress; the ADR-012 self-contained release-artifact path is implemented and under final validation.
 
 The repository now contains:
 
-- a self-contained installable Kimai plugin design and production-shaped staging path;
+- a deterministic self-contained Kimai plugin packaging target with production-only Composer dependencies;
+- a package-contract/reproducibility CI workflow;
 - PHP/Composer package metadata and a committed minimum-PHP-resolved `composer.lock`;
 - PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer project-local tooling;
 - PHP 8.2–8.5 CI using the same locked dependency graph;
-- a disposable Kimai 2.65.0 + MySQL plugin-lifecycle E2E harness;
+- a disposable Kimai 2.65.0 + MySQL plugin-lifecycle E2E harness that installs the generated ZIP itself;
 - PHP-aware MegaLinter configuration with auto-fixes disabled;
 - Doxygen/PHPDoc source-documentation standards and generated reference tooling;
 - production Payment Link generation/recovery through Kimai's invoice pre-render seam;
@@ -40,7 +41,7 @@ The repository now contains:
 - an operator runbook covering routine operation, incidents, disablement, and manual fallback; and
 - detailed installation/design/testing/threat/configuration/handoff documentation.
 
-Phase 7 remains responsible for proving the full hosted Stripe payment-to-Kimai reconciliation path and verifying that release automation produces the self-contained production artifact required by ADR-012.
+The major remaining Phase 7 evidence gap is the full Stripe-hosted sandbox card payment -> real Session/PaymentIntent/Charge -> reconciliation command -> exact Kimai paid-state transition and idempotent rerun.  That proof remains separate from release packaging and must not be inferred from lower-layer green tests.
 
 ## Installation
 
@@ -54,9 +55,15 @@ The connector installs under:
 var/plugins/KimaiStripeConnectorBundle/
 ```
 
-and must carry its own production Composer dependencies rather than modifying Kimai's root Composer graph.
+and carries its own production Composer dependencies rather than modifying Kimai's root Composer graph.
 
-Until Phase 7 verifies the release artifact pipeline, do not assume GitHub's automatically generated source archives are installable plugin packages.  The installation guide includes a source-build procedure that reproduces the production-shaped staging model already exercised by the disposable Kimai E2E harness.
+The ADR-012 installable artifact is:
+
+```text
+KimaiStripeConnectorBundle-<version>.zip
+```
+
+with a matching SHA-256 file.  GitHub's automatically generated **Source code** archives remain source archives and are not installable plugin artifacts because they do not contain the generated production dependency tree.
 
 ## Start Here
 
@@ -226,11 +233,28 @@ with namespace:
 KimaiPlugin\KimaiStripeConnectorBundle\
 ```
 
-ADR-012 requires installable release artifacts to be self-contained and carry plugin-local Composer production dependencies rather than modifying Kimai's root Composer graph.  Phase 7 will verify that the release automation actually produces that artifact shape.
+ADR-012 requires installable release artifacts to be self-contained and carry plugin-local Composer production dependencies rather than modifying Kimai's root Composer graph.
 
-Source control ignores the generated/local `vendor/` tree while committing the dependency lockfile.
+The deterministic build is:
 
-See [`doc/INSTALL.md`](doc/INSTALL.md) for the currently supported installation paths.
+```text
+make package VERSION=<version>
+```
+
+and produces:
+
+```text
+dist/KimaiStripeConnectorBundle-<version>.zip
+dist/KimaiStripeConnectorBundle-<version>.zip.sha256
+```
+
+The packager uses an allowlist of runtime source/metadata, installs dependencies with `composer install --no-dev`, normalizes archive metadata, and excludes tests, CI files, development tooling, and require-dev dependency trees.  `make package-check` builds twice and requires byte-for-byte identical ZIPs in addition to validating package contents and autoloading.
+
+The Package CI workflow runs that contract on pull requests and `main`.  Disposable Kimai E2E installs the generated ZIP itself, so install/load/remove evidence now exercises the same artifact shape intended for release.  The semver workflow builds and attaches the self-contained ZIP and checksum to releases rather than relying on GitHub's source archive.
+
+Source control ignores generated `vendor/` and `dist/` output while committing the dependency lockfile.
+
+See [`doc/INSTALL.md`](doc/INSTALL.md) for installation details.
 
 ## Testing
 
@@ -263,13 +287,14 @@ Each run:
 ```text
 creates fresh Compose project + named volumes
 -> starts Kimai 2.65.0 + MySQL
--> stages plugin source with composer install --no-dev from composer.lock
--> installs the production-shaped stage under var/plugins
+-> builds the self-contained plugin ZIP from composer.lock with production deps only
+-> extracts the ZIP
+-> installs that exact artifact under var/plugins
 -> reloads and verifies Kimai
 -> exercises disabled reconciliation/cleanup commands without Stripe access
 -> removes plugin
 -> reloads and verifies Kimai again
--> destroys containers, network, every named volume, and the local stage
+-> destroys containers, network, every named volume, and local package staging
 ```
 
 The E2E harness intentionally does not copy a developer checkout's `vendor/` tree into Kimai.  That tree may contain PHPUnit, PHPStan, Symfony development packages, and other dependencies that are not part of the production plugin artifact and can collide with Kimai's own dependency graph.
@@ -296,11 +321,18 @@ make docs
 make docs-clean
 ```
 
+Package commands are:
+
+```text
+make package VERSION=dev
+make package-check
+```
+
 `make check` is the ordinary local PHP gate and runs PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer in check-only mode.
 
 `make format` applies the configured PHP-CS-Fixer rules explicitly.  CI and MegaLinter do not auto-fix source.
 
-`make e2e` is independent of the repository-root development `vendor/` tree.  It requires Docker with Compose and Composer on `PATH`, then stages its own production dependency graph from the committed lockfile.
+`make e2e` builds the production package and installs that ZIP into disposable Kimai.  It requires Docker with Compose, Composer, `zip`, and `unzip` on `PATH`; it does not rely on the repository-root development `vendor/` tree.
 
 The generated Doxygen reference tree lives under ignored `doc/reference/`.
 
@@ -320,7 +352,8 @@ A successful workflow is considered clean only when MegaLinter reports zero erro
 The repository also runs:
 
 - PHP 8.2–8.5 against the committed lockfile with PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer;
-- disposable Kimai E2E; and
+- deterministic package contract/reproducibility CI;
+- disposable Kimai E2E using the generated package ZIP; and
 - Doxygen generation with warnings treated as failures.
 
 Dependabot covers GitHub Actions and Composer dependencies.  Semver/release automation is intentionally retained during initial development; frequent patch releases are acceptable and useful for visible progress.

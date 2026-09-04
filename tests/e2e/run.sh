@@ -28,6 +28,7 @@ E2E_DATABASE_URL+="://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
 E2E_DATABASE_URL+="?charset=${DB_CHARSET}&serverVersion=${DB_SERVER_VERSION}"
 export E2E_DATABASE_URL
 
+PACKAGE_ROOT=""
 PLUGIN_STAGE=""
 
 compose() {
@@ -51,8 +52,8 @@ diagnostics() {
 }
 
 cleanup() {
-  if [[ -n "${PLUGIN_STAGE}" && -d "${PLUGIN_STAGE}" ]]; then
-    rm -rf "${PLUGIN_STAGE}"
+  if [[ -n "${PACKAGE_ROOT}" && -d "${PACKAGE_ROOT}" ]]; then
+    rm -rf "${PACKAGE_ROOT}"
   fi
 
   compose down --volumes --remove-orphans > /dev/null 2>&1 || true
@@ -73,54 +74,44 @@ trap on_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-if ! command -v composer > /dev/null 2>&1; then
-  echo "error: composer is required to stage plugin runtime dependencies" >&2
+if ! command -v unzip > /dev/null 2>&1; then
+  echo "error: unzip is required to exercise the release artifact" >&2
   exit 1
 fi
 
 cleanup
 
-PLUGIN_STAGE="$(mktemp -d)"
+PACKAGE_ROOT="$(mktemp -d)"
+readonly PACKAGE_ROOT
+readonly PACKAGE_OUTPUT="${PACKAGE_ROOT}/artifact"
+readonly PACKAGE_EXTRACT="${PACKAGE_ROOT}/extracted"
+mkdir -p "${PACKAGE_OUTPUT}" "${PACKAGE_EXTRACT}"
+
+# Build the exact self-contained ZIP shape used by release automation, then install
+# that archive into disposable Kimai. This prevents lifecycle E2E from validating a
+# merely similar staging tree while the release artifact itself remains unproven.
+VERSION=e2e OUTPUT_DIR="${PACKAGE_OUTPUT}" \
+  bash "${REPOSITORY_ROOT}/tools/package.sh"
+
+readonly PACKAGE_ARCHIVE="${PACKAGE_OUTPUT}/${PLUGIN_NAME}-e2e.zip"
+unzip -q "${PACKAGE_ARCHIVE}" -d "${PACKAGE_EXTRACT}"
+
+PLUGIN_STAGE="${PACKAGE_EXTRACT}/${PLUGIN_NAME}"
 readonly PLUGIN_STAGE
 
-# Build an isolated plugin tree with the production dependency graph from the
-# committed lockfile. The developer checkout may contain PHPUnit, PHPStan,
-# Symfony, or other require-dev packages under vendor/; copying that tree into
-# Kimai would test a development workspace rather than the self-contained runtime
-# artifact required by ADR-012 and can collide with Kimai's own dependencies.
-# Test source/stubs are also excluded so the staged tree models the production
-# plugin rather than merely relying on --no-dev to keep them out of the autoloader.
-tar \
-  -C "${REPOSITORY_ROOT}" \
-  --exclude='./.git' \
-  --exclude='./vendor' \
-  --exclude='./tests' \
-  --exclude='./build' \
-  --exclude='./coverage' \
-  --exclude='./dist' \
-  --exclude='./doc/reference' \
-  -cf - . | tar -C "${PLUGIN_STAGE}" -xf -
-
-if [[ -e "${PLUGIN_STAGE}/tests" ]]; then
-  echo "error: production-shaped plugin stage contains test artifacts" >&2
+if [[ ! -f "${PLUGIN_STAGE}/vendor/autoload.php" ]]; then
+  echo "error: release artifact is missing plugin runtime dependencies" >&2
   exit 1
 fi
 
-composer install \
-  --working-dir="${PLUGIN_STAGE}" \
-  --no-dev \
-  --no-interaction \
-  --prefer-dist \
-  --optimize-autoloader
-
-if [[ ! -f "${PLUGIN_STAGE}/vendor/autoload.php" ]]; then
-  echo "error: staged plugin runtime dependencies are missing" >&2
+if [[ -e "${PLUGIN_STAGE}/tests" || -e "${PLUGIN_STAGE}/.github" ]]; then
+  echo "error: release artifact contains repository-only development material" >&2
   exit 1
 fi
 
 compose up --detach --wait --wait-timeout 240
 
-# Install the staged plugin exactly where Kimai expects a normal plugin. The named
+# Install the packaged plugin exactly where Kimai expects a normal plugin. The named
 # plugin volume belongs only to this Compose project and is destroyed by cleanup.
 compose exec --user root --no-TTY kimai mkdir -p "${PLUGIN_PATH}"
 compose cp "${PLUGIN_STAGE}/." "kimai:${PLUGIN_PATH}"
@@ -167,5 +158,6 @@ require "/opt/kimai/vendor/autoload.php";
 exit(class_exists("KimaiPlugin\\KimaiStripeConnectorBundle\\KimaiStripeConnectorBundle") ? 1 : 0);
 '
 
-# cleanup runs through the EXIT trap and removes containers, networks, the staging
-# directory, and all named volumes, including the test database and plugin volume.
+# cleanup runs through the EXIT trap and removes containers, networks, the package
+# staging directory, and all named volumes, including the test database and plugin
+# volume.

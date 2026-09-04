@@ -1,6 +1,7 @@
-.PHONY: analyse check docs docs-clean e2e format format-check lint test
+.PHONY: analyse check docs docs-clean e2e format format-check lint package package-check test
 
 REFERENCE_DOC_DIR := doc/reference
+VERSION ?= dev
 
 ## @brief Run the PHPUnit test suite.
 test:
@@ -52,6 +53,14 @@ check:
 		exit 1; \
 	}
 	composer check
+
+## @brief Build the self-contained production plugin ZIP under dist/.
+package:
+	VERSION="$(VERSION)" bash tools/package.sh
+
+## @brief Verify package contents and byte-for-byte reproducibility.
+package-check:
+	bash tests/package/run.sh
 
 ## @brief Run the disposable Kimai plugin-lifecycle E2E exercise.
 e2e:

@@ -30,6 +30,19 @@ A deterministic fake HTTP/Stripe boundary under project control while using the 
 
 Use for timeout-before/after-commit, malformed responses, retry/idempotency behavior, pagination, rate limits, network interruption, races, and hostile/unexpected object graphs.
 
+### Package/release evidence
+
+Deterministic artifact construction and inspection without a production release.
+
+Use for the ADR-012 runtime allowlist, production-only Composer dependencies,
+archive naming, SHA-256 generation, byte-for-byte reproducibility, exclusion of
+development material, packaged SDK autoloading, and release-workflow attachment
+semantics.
+
+The package test and disposable Kimai E2E deliberately share the same packaging
+implementation.  This prevents the repository from proving one staging tree while
+shipping another.
+
 ### Real Stripe sandbox E2E
 
 A deliberately small set of high-value proofs against the official Stripe sandbox/test environment.
@@ -72,7 +85,7 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 | Read-only Stripe SDK adapter | `StripeReconciliationHttpBoundaryTest` | Real locked SDK GET request paths, pagination parameters, Payment Link -> Checkout Session -> PaymentIntent -> Charge traversal, instance scoping, malformed evidence, retryable connection failure, Charge timestamp |
 | Kimai persistence boundary   | `KimaiReconciliationInvoiceStoreTest`  | Exact Kimai snapshot, shared fail-closed float conversion, last-moment re-read, TOCTOU drift conflict, evidence mismatch, concurrent already-paid no-op, Stripe payment-date application                              |
 | External command             | `ReconcileCommandTest`                 | Disabled no-op, configuration failure, `--dry-run`, material manual-review exit, retryable run-level failure, stable human result category                                                                            |
-| DI / production packaging    | disposable Kimai E2E                   | Production-shaped plugin installation/reload/removal verifies real Kimai can construct registered Phase 4 services                                                                                                    |
+| DI / production packaging    | disposable Kimai E2E                   | Generated self-contained ZIP installs/reloads/removes in real Kimai and constructs registered Phase 4 services                                                                                                        |
 | Real paid sandbox E2E        | future extension of sandbox workflow   | Hosted test-card Checkout and exact Kimai paid mutation remain intentionally unclaimed until implemented and run                                                                                                      |
 
 ## Phase 5 Cleanup Coverage
@@ -84,12 +97,32 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 | Stripe read evidence         | `StripeReconciliationHttpBoundaryTest` | Locked SDK Payment Link discovery retains Stripe `created` and `active` evidence while preserving Phase 4 read-only Session/PaymentIntent/Charge traversal                                                                                                       |
 | Stripe mutation boundary     | `StripeCleanupHttpBoundaryTest`        | Locked SDK target retrieve before update, exact metadata check, idempotent already-inactive result, `active=false` request encoding, update confirmation, retryable uncertain update outcome                                                                     |
 | External cleanup command     | `CleanupCommandTest`                   | Disabled no-op, missing credential, `--dry-run`, eligible deactivation, conflict, paid orphan/manual review, retryable discovery, retryable deactivation, generic internal-error output, shared ADR-013 exit-code mapping                                        |
-| DI / production packaging    | disposable Kimai E2E                   | Production-shaped Kimai 2.65 plugin installation constructs both reconciliation and cleanup commands; disabled `--dry-run` invocations prove registration/autowiring without Stripe credential or mutation                                                       |
+| DI / production packaging    | disposable Kimai E2E                   | Packaged Kimai 2.65 plugin installs and constructs both reconciliation and cleanup commands; disabled `--dry-run` invocations prove registration/autowiring without Stripe credential or mutation                                                                |
 | Real Stripe cleanup behavior | existing sandbox contract probe        | Real sandbox has proven connector-created Payment Link deactivation with the existing restricted-key permission; the Phase 5 eligibility/revalidation algorithm itself remains deterministic lower-layer evidence rather than an active real-account cleanup run |
 
 The Phase 5 destructive decision is deliberately stricter than an ordinary reconciliation `NO_CHANGE`.  Lack of successful payment proof is insufficient: automatic cleanup requires positively supported terminal/unpaid evidence.  Open, processing, unknown, contradictory, partially financial, or otherwise ambiguous Stripe state is retained.
 
 The PHPUnit suite explicitly includes both `tests/Unit` and `tests/Integration`.  This prevents controlled-SDK tests from existing in the repository without actually executing under `composer check`.
+
+## Phase 7 Release-Artifact Coverage
+
+| Area                        | Repository evidence                        | Current evidence                                                                                                         |
+|-----------------------------|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| Runtime package allowlist   | `tools/package.sh`, `tests/package/run.sh` | Only runtime source, required plugin/project metadata, installation guide, and generated production `vendor/` are packed |
+| Production dependencies     | package test                               | `composer install --no-dev` from committed lockfile; packaged Stripe SDK autoloads                                       |
+| Development exclusion       | package test                               | Tests, CI/tooling files, and known require-dev vendor trees are rejected                                                 |
+| Reproducibility             | package test                               | Same version/source/dependency graph builds byte-for-byte identical ZIP files                                            |
+| Integrity metadata          | package test / Package workflow            | SHA-256 file is generated and verified                                                                                   |
+| Real Kimai installability   | disposable Kimai E2E                       | The generated ZIP itself is extracted, installed, reloaded, exercised disabled, removed, and verified gone               |
+| Release attachment contract | `.github/workflows/semver.yml`             | Future GitHub releases attach the self-contained ZIP and checksum rather than relying on source archives                 |
+
+The Package workflow executes `make package-check` on pull requests and `main`.
+It does not publish a release.  Publishing remains governed by repository release
+automation and the explicit owner/license boundaries.
+
+GitHub-generated source ZIP/tar archives are not treated as ADR-012 installable
+artifacts because they do not contain generated plugin-local production
+dependencies.
 
 ## Historical Payment-Link Scenario Status
 
@@ -195,9 +228,9 @@ These scenarios shall not be implemented solely as real Stripe E2E tests because
 
 ## Kimai Integration Status
 
-| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                                                                                |
-|--------------|----------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| KIM-001..012 | Disposable Kimai integration/E2E | Plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; paid persistence is modeled against verified Kimai 2.65 APIs; both scheduler commands construct in real Kimai; canonical full paid E2E remains required before that stronger release-level claim |
+| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                                                                                         |
+|--------------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| KIM-001..012 | Disposable Kimai integration/E2E | Packaged plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; paid persistence is modeled against verified Kimai 2.65 APIs; both scheduler commands construct in real Kimai; canonical full paid E2E remains required before that stronger release-level claim |
 
 The disposable Kimai lifecycle harness remains the canonical ephemeral host fixture.
 

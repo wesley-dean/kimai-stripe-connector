@@ -86,7 +86,7 @@ The Kimai portion of every E2E run is ephemeral and is constructed/destroyed by
 The `CFG-*` scenarios from `doc/configuration.md` are primarily unit tests:
 
 | IDs          | Primary layer    | Notes                                                                                        |
-| ------------ | ---------------- | -------------------------------------------------------------------------------------------- |
+|--------------|------------------|----------------------------------------------------------------------------------------------|
 | CFG-001..010 | Unit             | Configuration validity and contradiction handling                                            |
 | CFG-011..012 | Unit/integration | Secret redaction must also be checked in real startup logs                                   |
 | CFG-013      | Unit/integration | `.env` population must have identical semantics to externally supplied environment variables |
@@ -96,7 +96,7 @@ The `CFG-*` scenarios from `doc/configuration.md` are primarily unit tests:
 The original pre-implementation exercise defines `PL-*` scenarios.
 
 | IDs         | Primary layer          | Representative concerns                              |
-| ----------- | ---------------------- | ---------------------------------------------------- |
+|-------------|------------------------|------------------------------------------------------|
 | PL-001..004 | Unit/Kimai integration | Preview suppression, identity, create/reuse behavior |
 | PL-005..008 | Controlled Stripe      | API error, timeout, idempotency, uncertain commit    |
 | PL-009..012 | Unit/controlled Stripe | Financial conflict, ambiguous candidates, recovery   |
@@ -108,7 +108,7 @@ than replacing that record.
 ## Money Backlog
 
 | IDs          | Primary layer | Notes                                                                                         |
-| ------------ | ------------- | --------------------------------------------------------------------------------------------- |
+|--------------|---------------|-----------------------------------------------------------------------------------------------|
 | MNY-001..008 | Unit          | Exact decimal/minor-unit behavior, supported/unsupported currency policy, malformed precision |
 
 Money conversion receives broad parameterized/property-style coverage because it
@@ -117,7 +117,7 @@ is cheap and financially consequential.
 ## Reconciliation Backlog
 
 | IDs          | Primary layer                       | Representative concerns                                                     |
-| ------------ | ----------------------------------- | --------------------------------------------------------------------------- |
+|--------------|-------------------------------------|-----------------------------------------------------------------------------|
 | REC-001..012 | Unit/controlled Stripe              | Identity, amount, currency, checkout/payment state                          |
 | REC-013..018 | Controlled Stripe/Kimai integration | refund, dispute, capture, multiple candidates, persistence failure          |
 | REC-019..022 | Real E2E plus lower layers          | successful exact payment, paid mutation, idempotent rerun, anomaly behavior |
@@ -128,7 +128,7 @@ The full adversarial state matrix belongs in deterministic lower layers.
 ## Cleanup Backlog
 
 | IDs          | Primary layer                            | Notes                                                                                             |
-| ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+|--------------|------------------------------------------|---------------------------------------------------------------------------------------------------|
 | CLN-001..009 | Unit/controlled Stripe/Kimai integration | Prove eligibility logic, uncertainty retention, paid-orphan retention, grace period, deactivation |
 
 At least one real Stripe sandbox test should prove that a connector-created unpaid
@@ -138,7 +138,7 @@ matrix does not need repeated external API calls.
 ## Network and Concurrency Backlog
 
 | IDs          | Primary layer                         |
-| ------------ | ------------------------------------- |
+|--------------|---------------------------------------|
 | NET-001..008 | Controlled Stripe/network             |
 | CON-001..004 | Controlled Stripe/concurrency harness |
 
@@ -148,7 +148,7 @@ network timing and failure induction would be nondeterministic and slow.
 ## Kimai Integration Backlog
 
 | IDs          | Primary layer                    |
-| ------------ | -------------------------------- |
+|--------------|----------------------------------|
 | KIM-001..012 | Disposable Kimai integration/E2E |
 
 The existing lifecycle harness is the first implementation of this layer.  Future
@@ -158,7 +158,7 @@ long-lived Kimai fixture.
 ## Stripe Contract Backlog
 
 | IDs          | Primary layer                                               |
-| ------------ | ----------------------------------------------------------- |
+|--------------|-------------------------------------------------------------|
 | STR-001..011 | Controlled Stripe plus a representative real sandbox subset |
 
 Real sandbox tests should verify assumptions that only Stripe can prove, including

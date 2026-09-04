@@ -49,6 +49,10 @@ final class CleanupPlanner
             return CleanupPlan::internalError('Cleanup planning received no managed Payment Link evidence.');
         }
 
+        if ($candidates === []) {
+            return CleanupPlan::internalError('Cleanup planning received no Stripe payment-state evidence.');
+        }
+
         if ($now <= 0 || $graceDays <= 0) {
             return CleanupPlan::internalError('Cleanup planning received an invalid clock or grace period.');
         }

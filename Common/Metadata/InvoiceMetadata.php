@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace KimaiPlugin\KimaiStripeConnectorBundle\Common\Metadata;
 
 use InvalidArgumentException;
+use KimaiPlugin\KimaiStripeConnectorBundle\Common\Configuration\ConfigurationException;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Identity\KimaiInstanceId;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Money\Money;
 
@@ -53,12 +54,20 @@ final readonly class InvoiceMetadata
      */
     public static function fromStripeMetadata(array $metadata): self
     {
-        foreach (
-            ['integration', 'integration_version', 'kimai_instance', 'invoice_number', 'invoice_amount', 'invoice_currency']
-            as $key
-        ) {
+        $requiredFields = [
+            'integration',
+            'integration_version',
+            'kimai_instance',
+            'invoice_number',
+            'invoice_amount',
+            'invoice_currency',
+        ];
+
+        foreach ($requiredFields as $key) {
             if (!array_key_exists($key, $metadata) || !is_string($metadata[$key])) {
-                throw new MetadataException(sprintf('Missing or invalid required metadata field: %s.', $key));
+                throw new MetadataException(
+                    sprintf('Missing or invalid required metadata field: %s.', $key)
+                );
             }
         }
 
@@ -97,7 +106,7 @@ final readonly class InvoiceMetadata
             );
         } catch (InvalidArgumentException $exception) {
             throw new MetadataException($exception->getMessage(), previous: $exception);
-        } catch (\KimaiPlugin\KimaiStripeConnectorBundle\Common\Configuration\ConfigurationException $exception) {
+        } catch (ConfigurationException $exception) {
             throw new MetadataException($exception->getMessage(), previous: $exception);
         }
     }

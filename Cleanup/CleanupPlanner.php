@@ -115,7 +115,9 @@ final class CleanupPlanner
 
         $minimumAge = $graceDays * self::SECONDS_PER_DAY;
         if (($now - $createdAt) < $minimumAge) {
-            return CleanupPlan::noChange('The proven unpaid orphan is still inside the configured cleanup grace period.');
+            return CleanupPlan::noChange(
+                'The proven unpaid orphan is still inside the configured cleanup grace period.',
+            );
         }
 
         return CleanupPlan::deactivate(

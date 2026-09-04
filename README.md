@@ -18,11 +18,11 @@ Kimai does not need public Internet ingress and Stripe webhooks are not required
 
 ## Project Status
 
-Phases 1 through 5 are merged.  Phase 6 operator documentation is under active development in draft PR #11.
+Phases 1 through 6 are merged.  Phase 7 compatibility and release evidence is the next project boundary.
 
 The repository now contains:
 
-- a self-contained installable Kimai plugin bundle;
+- a self-contained installable Kimai plugin design and production-shaped staging path;
 - PHP/Composer package metadata and a committed minimum-PHP-resolved `composer.lock`;
 - PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer project-local tooling;
 - PHP 8.2–8.5 CI using the same locked dependency graph;
@@ -38,9 +38,25 @@ The repository now contains:
 - the `kimai:stripe:cleanup` command with `--dry-run` and the same operator-result taxonomy;
 - a manual real-Stripe sandbox contract probe;
 - an operator runbook covering routine operation, incidents, disablement, and manual fallback; and
-- detailed design/testing/threat/configuration/handoff documentation.
+- detailed installation/design/testing/threat/configuration/handoff documentation.
 
-Phase 6 adds operator guidance for the already merged behavior.  It does not broaden the connector's financial or Stripe mutation authority.
+Phase 7 remains responsible for proving the full hosted Stripe payment-to-Kimai reconciliation path and verifying that release automation produces the self-contained production artifact required by ADR-012.
+
+## Installation
+
+Installation, configuration, verification, upgrade, disablement, removal, and troubleshooting are documented in:
+
+[`doc/INSTALL.md`](doc/INSTALL.md)
+
+The connector installs under:
+
+```text
+var/plugins/KimaiStripeConnectorBundle/
+```
+
+and must carry its own production Composer dependencies rather than modifying Kimai's root Composer graph.
+
+Until Phase 7 verifies the release artifact pipeline, do not assume GitHub's automatically generated source archives are installable plugin packages.  The installation guide includes a source-build procedure that reproduces the production-shaped staging model already exercised by the disposable Kimai E2E harness.
 
 ## Start Here
 
@@ -60,15 +76,16 @@ High-value entry points:
 2. [`Implementation Playbook`](doc/implementation-playbook.md)
 3. [`Decision Index`](doc/decisions.md)
 4. [`Project Handoff`](doc/project-handoff.md)
-5. [`Operator Runbook`](doc/operator-runbook.md)
-6. [`Configuration Model`](doc/configuration.md)
-7. [`Threat Model`](doc/threat-model.md)
-8. [`Documentation Standard`](doc/documentation.md)
-9. [`Test Architecture and Coverage Matrix`](doc/testing/test-matrix.md)
-10. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
-11. [`Pre-Implementation Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
-12. [`Stripe Sandbox E2E Strategy`](doc/testing/e2e-stripe-sandbox.md)
-13. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
+5. [`Installation Guide`](doc/INSTALL.md)
+6. [`Operator Runbook`](doc/operator-runbook.md)
+7. [`Configuration Model`](doc/configuration.md)
+8. [`Threat Model`](doc/threat-model.md)
+9. [`Documentation Standard`](doc/documentation.md)
+10. [`Test Architecture and Coverage Matrix`](doc/testing/test-matrix.md)
+11. [`Reference Hosting Environment`](doc/reference-hosting-environment.md)
+12. [`Pre-Implementation Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+13. [`Stripe Sandbox E2E Strategy`](doc/testing/e2e-stripe-sandbox.md)
+14. [`Evaluated Billing and Time-Tracking Tools`](doc/evaluated-tools.md)
 
 ## Architecture Decisions
 
@@ -209,9 +226,11 @@ with namespace:
 KimaiPlugin\KimaiStripeConnectorBundle\
 ```
 
-The release/plugin artifact is self-contained and carries plugin-local Composer production dependencies rather than modifying Kimai's root Composer graph.
+ADR-012 requires installable release artifacts to be self-contained and carry plugin-local Composer production dependencies rather than modifying Kimai's root Composer graph.  Phase 7 will verify that the release automation actually produces that artifact shape.
 
 Source control ignores the generated/local `vendor/` tree while committing the dependency lockfile.
+
+See [`doc/INSTALL.md`](doc/INSTALL.md) for the currently supported installation paths.
 
 ## Testing
 

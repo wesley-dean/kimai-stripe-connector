@@ -32,12 +32,22 @@ The main architecture decision is currently **Proposed**, not Accepted.  Accepta
 Humans and AI/LLM development tools should read these documents before substantive implementation work:
 
 1. [`AGENTS.md`](AGENTS.md)
-2. [`doc/project-handoff.md`](doc/project-handoff.md)
-3. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
-4. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
-5. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+2. [`doc/decisions.md`](doc/decisions.md)
+3. [`doc/project-handoff.md`](doc/project-handoff.md)
+4. [`ADR-000: Capability Scope, Epistemic Honesty, and Separation of Concerns`](doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md)
+5. [`ADR-001: Use a Single Kimai Plugin for Stripe Payment Links and Reconciliation`](doc/adr/ADR-001-single-plugin-architecture.md)
+6. [`Pre-Implementation Kimai / Stripe Mock Exercise`](doc/testing/preimplementation-mock-exercise.md)
+7. [`Containerized Kimai + Stripe Sandbox E2E Testing`](doc/testing/e2e-stripe-sandbox.md)
 
 The handoff document records the project history, hard constraints, current decisions, reference environment, unresolved questions, known template residue, and recommended next work so a new development session does not need access to earlier conversations.
+
+### Decision index
+
+[`doc/decisions.md`](doc/decisions.md) is the fast-reference index for project ADRs.  It summarizes each ADR decision in a few sentences, records its current status, and links back to the source ADR.
+
+Use the decision index to discover which decisions matter to the task at hand.  Do **not** use it as a replacement for the ADRs when implementing or interpreting architecture.  The full ADR contains the rationale, alternatives, constraints, failure modes, and nuance; if the summary ever conflicts with its ADR, the ADR is authoritative.
+
+When an ADR is added, accepted, superseded, deprecated, or materially changed, `doc/decisions.md` should be updated in the same change.
 
 ## Core Design Principles
 
@@ -96,6 +106,8 @@ A connector or compatibility failure should therefore be recoverable by disablin
 ADRs live under `doc/adr`, as configured by `.adr-dir`.
 
 The repository's ADR template intentionally prefers thorough documentation over premature compression.  Capture reasoning, alternatives, assumptions, failure modes, and uncertainty.  The documentation can be distilled later after implementation and operational experience establish what is durable.
+
+Keep [`doc/decisions.md`](doc/decisions.md) synchronized with the ADR set so humans and tools have a reliable compact index without sacrificing the full ADR record.
 
 ## Repository Automation
 

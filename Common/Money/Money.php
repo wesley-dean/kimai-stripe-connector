@@ -16,17 +16,21 @@ use InvalidArgumentException;
  *
  * @details
  * Decimal input is parsed as text.  Binary floating-point arithmetic is never
- * used for authoritative conversion or comparison.
+ * used for authoritative conversion or comparison.  Stripe payment amounts are
+ * limited to eight digits in minor units, so larger invoices fail before any
+ * remote mutation is attempted.
  */
 final readonly class Money
 {
+    public const MAX_MINOR_UNITS = 99_999_999;
+
     /**
      * @brief Construct money from already validated minor units.
      *
      * @param int $minorUnits Positive integer number of hundredths.
      * @param CurrencyCode $currency Supported currency.
      *
-     * @throws InvalidArgumentException When the amount is not positive.
+     * @throws InvalidArgumentException When the amount is outside the supported Stripe range.
      */
     public function __construct(
         private int $minorUnits,
@@ -34,6 +38,10 @@ final readonly class Money
     ) {
         if ($minorUnits <= 0) {
             throw new InvalidArgumentException('Invoice amount must be greater than zero.');
+        }
+
+        if ($minorUnits > self::MAX_MINOR_UNITS) {
+            throw new InvalidArgumentException('Invoice amount exceeds Stripe\'s eight-digit minor-unit limit.');
         }
     }
 
@@ -56,13 +64,12 @@ final readonly class Money
         $fraction = $matches[2] ?? '';
         $minorString = ltrim($matches[1] . str_pad($fraction, 2, '0'), '0');
         $minorString = $minorString === '' ? '0' : $minorString;
-        $phpIntMax = (string) PHP_INT_MAX;
 
         if (
-            strlen($minorString) > strlen($phpIntMax)
-            || (strlen($minorString) === strlen($phpIntMax) && strcmp($minorString, $phpIntMax) > 0)
+            strlen($minorString) > 8
+            || (strlen($minorString) === 8 && strcmp($minorString, (string) self::MAX_MINOR_UNITS) > 0)
         ) {
-            throw new InvalidArgumentException('Invoice amount exceeds the supported integer range.');
+            throw new InvalidArgumentException('Invoice amount exceeds Stripe\'s eight-digit minor-unit limit.');
         }
 
         return new self((int) $minorString, new CurrencyCode($currency));
@@ -73,6 +80,8 @@ final readonly class Money
      *
      * @param int $minorUnits Positive integer amount.
      * @param string $currency Three-letter currency code.
+     *
+     * @throws InvalidArgumentException When the amount or currency is outside the accepted v1 policy.
      */
     public static function fromMinorUnits(int $minorUnits, string $currency): self
     {

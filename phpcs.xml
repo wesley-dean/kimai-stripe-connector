@@ -6,6 +6,7 @@
     <file>DependencyInjection</file>
     <file>KimaiStripeConnectorBundle.php</file>
     <file>PaymentLink</file>
+    <file>Reconciliation</file>
     <file>tests</file>
 
     <exclude-pattern>vendor/*</exclude-pattern>

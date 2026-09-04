@@ -4,6 +4,7 @@ parameters:
         - Common
         - DependencyInjection
         - PaymentLink
+        - Reconciliation
         - KimaiStripeConnectorBundle.php
     excludePaths:
         analyse:

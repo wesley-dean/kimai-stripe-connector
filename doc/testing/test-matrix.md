@@ -86,7 +86,7 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 | Kimai persistence boundary   | `KimaiReconciliationInvoiceStoreTest`  | Exact Kimai snapshot, shared fail-closed float conversion, last-moment re-read, TOCTOU drift conflict, evidence mismatch, concurrent already-paid no-op, Stripe payment-date application                              |
 | External command             | `ReconcileCommandTest`                 | Disabled no-op, configuration failure, `--dry-run`, material manual-review exit, retryable run-level failure, stable human result category                                                                            |
 | DI / production packaging    | disposable Kimai E2E                   | Generated self-contained ZIP installs/reloads/removes in real Kimai and constructs registered Phase 4 services                                                                                                        |
-| Real paid sandbox E2E        | future extension of sandbox workflow   | Hosted test-card Checkout and exact Kimai paid mutation remain intentionally unclaimed until implemented and run                                                                                                      |
+| Real paid sandbox E2E        | Phase 7b hosted-payment harness        | Full hosted Checkout / paid mutation / idempotence path is executable; actual real manual sandbox pass remains required before claiming it proven                                                                      |
 
 ## Phase 5 Cleanup Coverage
 
@@ -124,6 +124,26 @@ GitHub-generated source ZIP/tar archives are not treated as ADR-012 installable
 artifacts because they do not contain generated plugin-local production
 dependencies.
 
+## Phase 7b Hosted-Payment Coverage
+
+| Area                         | Repository evidence                                         | Current evidence                                                                                                  |
+|------------------------------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| Disposable active config     | `tests/e2e/compose.stripe.yaml`                             | Activates only Payment Links/reconciliation for credentialed E2E; no credential value is committed              |
+| Kimai business fixture       | `tests/e2e/run-stripe-hosted.sh`                            | Real Kimai API data plus `kimai:invoice:create` exercise the production invoice pre-render subscriber            |
+| Run isolation                | hosted shell harness                                        | Fresh Kimai instance UUID and fresh Compose volumes per run prevent prior sandbox objects from becoming matches  |
+| Stripe success evidence      | `tests/e2e/stripe-hosted-evidence.php`                      | Exact metadata/money/relationships plus Session paid, Intent succeeded, captured non-refunded undisputed Charge  |
+| Pre-reconcile invariant      | hosted shell harness                                        | Exact invoice must remain unpaid until reconciliation is deliberately invoked                                    |
+| Reconciliation dry run       | hosted shell harness                                        | Requires `SUCCESS`, `would_change=yes`, `changed=no`                                                              |
+| Paid-state persistence       | hosted shell harness                                        | Requires `SUCCESS`, exact invoice `paid`, and populated Kimai `paymentDate`                                       |
+| Idempotent rerun             | hosted shell harness                                        | Requires immediate second reconciliation to return `NO_CHANGE`                                                   |
+| Run-owned Stripe cleanup     | hosted evidence helper + EXIT trap                          | Deactivates only active connector links matching the run's unique instance UUID                                  |
+| Manual real-system evidence  | `.github/workflows/stripe-sandbox.yml`                      | Harness is wired into manual protected workflow; successful real run is still pending and must not be inferred   |
+
+Phase 7b deliberately keeps the browser action human.  The job prints the exact
+run-owned Stripe-hosted Payment Link and waits for one public Stripe success-card
+test payment.  No browser automation is used to manufacture the evidence being
+tested.
+
 ## Historical Payment-Link Scenario Status
 
 The authoritative historical scenario descriptions remain in `preimplementation-mock-exercise.md`.
@@ -145,7 +165,7 @@ The authoritative historical scenario descriptions remain in `preimplementation-
 | REC-021      | Unit orchestration                    | Paid Stripe orphan requires manual review and is never discarded or auto-applied                         |
 | REC-022      | Unit/controlled Stripe                | Implemented conservative anomaly behavior                                                                |
 
-Real hosted payment remains a separate evidence layer.  Lower-layer implementation of the scenario matrix does not claim that Stripe-hosted Checkout has been exercised end to end.
+Real hosted payment remains a separate evidence layer.  Lower-layer implementation of the scenario matrix does not claim that Stripe-hosted Checkout has been exercised end to end.  The Phase 7b harness makes that proof executable, but the claim remains pending until the manual workflow actually passes.
 
 ## Real Stripe Sandbox Contract Probe
 
@@ -155,10 +175,17 @@ The manual workflow is:
 .github/workflows/stripe-sandbox.yml
 ```
 
-The probe is:
+The original Phase 3 probe is:
 
 ```text
 tests/e2e/stripe-sandbox-smoke.php
+```
+
+The Phase 7b hosted harness is:
+
+```text
+tests/e2e/run-stripe-hosted.sh
+tests/e2e/stripe-hosted-evidence.php
 ```
 
 Current verified Stripe sandbox permissions are:
@@ -191,7 +218,7 @@ The probe also proves:
 
 The first real run exposed an order-sensitive local metadata assertion.  Stripe creation and cleanup succeeded.  The test was corrected to canonical metadata comparison and subsequent runs passed.
 
-The current probe does **not** prove hosted card Checkout, a real paid PaymentIntent/Charge chain, Kimai reconciliation, or the complete Phase 5 cleanup eligibility/revalidation loop against a real Stripe account.  Those remain future real-E2E evidence and must not be implied by lower-layer green tests.
+That Phase 3 probe still does **not** itself prove hosted card Checkout, a real paid PaymentIntent/Charge chain, or Kimai reconciliation.  Phase 7b adds an executable path for exactly those claims, but they remain real-system evidence pending a successful manual hosted workflow run.
 
 ## Configuration Backlog
 
@@ -228,17 +255,17 @@ These scenarios shall not be implemented solely as real Stripe E2E tests because
 
 ## Kimai Integration Status
 
-| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                                                                                         |
-|--------------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| KIM-001..012 | Disposable Kimai integration/E2E | Packaged plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; paid persistence is modeled against verified Kimai 2.65 APIs; both scheduler commands construct in real Kimai; canonical full paid E2E remains required before that stronger release-level claim |
+| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                                                                                                           |
+|--------------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| KIM-001..012 | Disposable Kimai integration/E2E | Packaged plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; Phase 7b now constructs a real invoice in disposable Kimai and wires the paid-state proof, but the canonical hosted run must pass before the stronger real-system claim is made |
 
-The disposable Kimai lifecycle harness remains the canonical ephemeral host fixture.
+The disposable Kimai lifecycle harness remains the canonical ephemeral host fixture.  The Phase 7b hosted harness reuses the same base fixture and ADR-012 packaging path rather than introducing a second deployment model.
 
 ## Stripe Contract Status
 
-| IDs          | Primary layer                                        | Status / notes                                                                                                                                                                                                                                                            |
-|--------------|------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| STR-001..011 | Controlled Stripe plus representative sandbox subset | Payment Link create/read/deactivate/money/metadata/permission subset is real-sandbox proven; reconciliation GET and cleanup target-update request behavior are controlled-SDK proven; hosted paid object chain and complete active cleanup loop remain future sandbox E2E |
+| IDs          | Primary layer                                        | Status / notes                                                                                                                                                                                                                                                                                                          |
+|--------------|------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| STR-001..011 | Controlled Stripe plus representative sandbox subset | Payment Link create/read/deactivate/money/metadata/permission subset is real-sandbox proven; reconciliation GET and cleanup target-update request behavior are controlled-SDK proven; Phase 7b wires the real paid object chain and run-owned cleanup into manual E2E, with the actual hosted pass still pending |
 
 Real sandbox tests should prove only assumptions that require Stripe.  Hostile response shapes and fault injection remain deterministic controlled tests.
 
@@ -252,7 +279,7 @@ THR-002 file-backed Stripe secret redaction
 THR-017 contradictory direct + file-backed credentials fail configuration
 ```
 
-The real Stripe workflow additionally demonstrates environment-secret injection where the credential is provided only to the final probe step, while checkout/setup/dependency-install steps do not receive it.
+The real Stripe workflow additionally demonstrates environment-secret injection where the credential is provided only to the contract-probe and hosted-payment steps that require Stripe access.  Checkout, PHP setup, and dependency installation do not receive it.
 
 The reconciliation and cleanup commands accept no arbitrary target invoice, Payment Link, or desired state.  This keeps their mutation surfaces evidence-derived.  Real deployment-boundary startup/log inspection remains necessary before all secret-leakage scenarios are considered fully proven.
 
@@ -272,5 +299,7 @@ documented contract
 + appropriate executable test
 + required CI/lint/documentation checks
 ```
+
+For claims that specifically require Stripe-hosted behavior, ordinary green PR CI is necessary but insufficient.  The repository must also point to the successful protected manual sandbox run that exercised the real hosted contract.
 
 Historical synthetic results remain useful design evidence, but they do not satisfy this completion rule until represented by executable repository tests.

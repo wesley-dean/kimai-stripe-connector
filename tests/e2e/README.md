@@ -52,18 +52,20 @@ The developer checkout may contain PHPUnit, PHPStan, Symfony test stubs, and oth
 packages are not part of the runtime plugin artifact and can conflict with classes
 already supplied by Kimai if copied into `var/plugins/`.
 
-The harness therefore does not copy the checkout's `vendor/` tree into Kimai.
-Instead, `run.sh` creates a temporary plugin stage from the checked-out source and
-runs:
+The harness therefore does not copy the checkout's `vendor/` tree or `tests/`
+tree into Kimai.  Instead, `run.sh` creates a temporary plugin stage from the
+remaining checked-out source and runs:
 
 ```text
 composer install --no-dev --prefer-dist --optimize-autoloader
 ```
 
 against the committed `composer.lock` inside that stage.  The staged plugin is
-then copied into Kimai.  This makes lifecycle E2E exercise the same dependency
-shape ADR-012 requires for a self-contained production plugin instead of testing a
-development workspace accidentally deployed as a plugin.
+then copied into Kimai.  This makes lifecycle E2E exercise the production
+dependency shape ADR-012 requires for a self-contained plugin instead of testing
+a development workspace accidentally deployed as a plugin.  The harness also
+asserts that the staged tree contains no `tests/` directory before dependency
+installation begins.
 
 ## Kimai startup health
 
@@ -82,15 +84,18 @@ recent Kimai/database logs before the cleanup trap removes the environment.
 
 ## Current lifecycle test
 
-The initial harness proves the plugin lifecycle before financial behavior exists:
+The harness now proves both normal plugin lifecycle and the Phase 4 command's safe
+construction path:
 
 ```text
 construct fresh Kimai + MySQL
 -> wait for healthy Kimai
--> build production-shaped plugin stage from composer.lock
+-> build production-shaped plugin stage from composer.lock without tests/dev deps
 -> copy plugin into var/plugins/KimaiStripeConnectorBundle
 -> kimai:reload
 -> verify bundle class resolves
+-> run kimai:stripe:reconcile --dry-run with connector disabled
+-> require NO_CHANGE without Stripe credentials or Stripe access
 -> verify Kimai CLI is healthy
 -> remove plugin directory
 -> kimai:reload
@@ -98,8 +103,11 @@ construct fresh Kimai + MySQL
 -> destroy containers and every named volume
 ```
 
-This validates an important boundary: the connector is a normal removable Kimai
-plugin rather than a modification to Kimai core.
+The disabled reconciliation invocation proves that Kimai 2.65 can discover and
+instantiate the command and its real service-container dependencies without
+performing financial mutation.  This validates an important boundary: the
+connector remains a normal removable Kimai plugin rather than a modification to
+Kimai core.
 
 ## Running locally
 
@@ -119,10 +127,19 @@ repository-root `composer install` is not required for E2E.
 
 ## Future Stripe E2E
 
-The same disposable Kimai environment will be extended with a small number of
-real Stripe sandbox flows described in `doc/testing/e2e-stripe-sandbox.md`.
+The same disposable Kimai environment can be extended with the high-value real
+Stripe sandbox flow described in `doc/testing/e2e-stripe-sandbox.md`:
 
-Those tests will create Stripe sandbox objects carrying a run-specific namespace,
-exercise hosted Checkout, reconcile back into this disposable Kimai instance, and
-clean up connector-managed sandbox objects when safe.  Stripe-side cleanup is
-separate from Docker cleanup because Stripe is an external service.
+```text
+real disposable Kimai invoice
+-> connector-created Payment Link
+-> Stripe-hosted sandbox card Checkout
+-> real Checkout Session / PaymentIntent / Charge evidence
+-> reconciliation command
+-> exact Kimai paid-state transition
+-> idempotent reconciliation rerun
+```
+
+That full hosted-payment path is intentionally not claimed by the current
+lifecycle harness.  Stripe-side cleanup is separate from Docker cleanup because
+Stripe is an external service.

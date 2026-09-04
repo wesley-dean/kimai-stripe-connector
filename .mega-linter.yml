@@ -22,8 +22,10 @@ DISABLE_LINTERS:
     EDITORCONFIG_EDITORCONFIG_CHECKER,
   ]
 
-# Scan only new / updated files where the selected linter supports that mode.
-VALIDATE_ALL_CODEBASE: false
+# The repository is deliberately small.  Lint the complete codebase so the quality
+# gate does not depend on fetching Git history or persisted checkout credentials,
+# and so a green run means the repository as a whole is warning/error free.
+VALIDATE_ALL_CODEBASE: true
 
 # Don't print the alpaca -- it's cute, but we don't need it in the logs.
 PRINT_ALPACA: false

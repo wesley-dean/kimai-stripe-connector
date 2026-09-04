@@ -38,9 +38,26 @@ No test database or Kimai application state is intentionally reused between E2E
 runs.
 
 The fixed credentials in `compose.yaml` are non-production fixtures scoped to this
-disposable environment.  Real Stripe sandbox credentials are supplied separately
-through CI/runtime secret injection when Stripe E2E coverage is enabled; they are
-never stored in this Compose file.
+disposable environment.  The database URL itself is assembled by `run.sh` at
+runtime instead of being stored as a literal connection URI in the repository.
+Real Stripe sandbox credentials are supplied separately through CI/runtime secret
+injection when Stripe E2E coverage is enabled; they are never stored in this
+Compose file.
+
+## Kimai startup health
+
+Kimai's normal image healthcheck remains the steady-state probe.  A pristine Kimai
+instance can spend materially longer on first-run setup and database migrations
+than the image's small default startup allowance permits, which can make a healthy
+first boot look unhealthy in a disposable environment.
+
+The E2E Compose file therefore keeps the upstream probe cadence and failure rules
+but overrides the healthcheck `start_period` to 30 minutes.  Failed probes during
+that startup window do not consume the steady-state retry budget, while a
+successful probe can still mark Kimai healthy immediately.
+
+If the lifecycle test fails, `run.sh` prints Compose status, Kimai health data, and
+recent Kimai/database logs before the cleanup trap removes the environment.
 
 ## Current lifecycle test
 

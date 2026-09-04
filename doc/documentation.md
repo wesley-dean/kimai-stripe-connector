@@ -391,7 +391,7 @@ job rather than produce a green workflow with hidden warnings.
 Use the following document for the corresponding kind of information:
 
 | Information                         | Authoritative home                       |
-| ----------------------------------- | ---------------------------------------- |
+|-------------------------------------|------------------------------------------|
 | Project purpose and orientation     | `README.md`                              |
 | Contributor/agent operating rules   | `AGENTS.md`                              |
 | Architectural rationale and history | `doc/adr/`                               |

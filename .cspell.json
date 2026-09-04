@@ -13,6 +13,7 @@
     "CodeQL",
     "Doxyfile",
     "Doxygen",
+    "EditorConfig",
     "Gitleaks",
     "Jenkins",
     "Kimai",
@@ -23,14 +24,17 @@
     "PHPDoc",
     "PHPStan",
     "PHPUnit",
+    "Psalm",
     "SARIF",
     "Stripe",
     "Symfony",
     "Traefik",
     "TruffleHog",
     "Twig",
+    "Zizmor",
     "adrctl",
     "analyse",
+    "andstor",
     "autoload",
     "autoloader",
     "autowire",
@@ -68,7 +72,6 @@
     "squizlabs",
     "trufflehogignore",
     "uroot",
-    "wesleydean",
-    "andstor"
+    "wesleydean"
   ]
 }

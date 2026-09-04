@@ -2,14 +2,30 @@
 
 set -euo pipefail
 
+SCRIPT_DIR=""
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
+
+REPOSITORY_ROOT=""
 REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 readonly REPOSITORY_ROOT
+
 readonly COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 readonly PROJECT_NAME="kimai-stripe-connector-e2e-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-$$}"
 readonly PLUGIN_NAME="KimaiStripeConnectorBundle"
 readonly PLUGIN_PATH="/opt/kimai/var/plugins/${PLUGIN_NAME}"
+
+readonly DB_USER="kimaiuser"
+readonly DB_PASSWORD="e2e-kimai-password"
+readonly DB_HOST="sqldb"
+readonly DB_NAME="kimai"
+readonly DB_CHARSET="utf8mb4"
+readonly DB_SERVER_VERSION="8.3.0"
+
+E2E_DATABASE_URL="mysql"
+E2E_DATABASE_URL+="://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}"
+E2E_DATABASE_URL+="?charset=${DB_CHARSET}&serverVersion=${DB_SERVER_VERSION}"
+export E2E_DATABASE_URL
 
 compose() {
   docker compose --project-name "${PROJECT_NAME}" --file "${COMPOSE_FILE}" "$@"
@@ -32,7 +48,7 @@ diagnostics() {
 }
 
 cleanup() {
-  compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  compose down --volumes --remove-orphans > /dev/null 2>&1 || true
 }
 
 on_exit() {
@@ -59,7 +75,7 @@ cleanup
 
 compose up --detach --wait --wait-timeout 240
 
-# Install the repository exactly where Kimai expects a normal plugin.  The named
+# Install the repository exactly where Kimai expects a normal plugin. The named
 # plugin volume belongs only to this Compose project and is destroyed by cleanup.
 compose exec --user root --no-TTY kimai mkdir -p "${PLUGIN_PATH}"
 compose cp "${REPOSITORY_ROOT}/." "kimai:${PLUGIN_PATH}"

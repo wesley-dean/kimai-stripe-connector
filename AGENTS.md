@@ -8,16 +8,19 @@ Before substantive project work, read these documents in order:
 
 1. `doc/decisions.md`
 2. `doc/project-handoff.md`
-3. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
-4. `doc/adr/ADR-001-single-plugin-architecture.md`
-5. `doc/testing/preimplementation-mock-exercise.md`
-6. `doc/testing/e2e-stripe-sandbox.md`
-7. `README.md`
-8. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
+3. `doc/evaluated-tools.md`
+4. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
+5. `doc/adr/ADR-001-single-plugin-architecture.md`
+6. `doc/testing/preimplementation-mock-exercise.md`
+7. `doc/testing/e2e-stripe-sandbox.md`
+8. `README.md`
+9. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
 
 Use `doc/decisions.md` as the fast index of accepted and proposed ADR decisions.  It is intentionally concise and should help determine which ADRs are relevant to the task at hand.  It is not authoritative over the ADRs themselves: when implementing, reviewing, or interpreting a decision, read the referenced ADR in full.  If `doc/decisions.md` conflicts with an ADR, the ADR controls.
 
 When an ADR is added, accepted, superseded, deprecated, or materially revised, update `doc/decisions.md` in the same change so the index remains trustworthy.
+
+Use `doc/evaluated-tools.md` before reopening the original Harvest-replacement product comparison.  It records why Kimai was selected over alternatives such as Invoice Ninja, Miru, Dolibarr, SolidInvoice, and ERPNext.  Treat those conclusions as historical, not eternal: reconsider an alternative only when requirements or the product have materially changed, and verify current upstream facts before relying on the old comparison.
 
 Do not infer missing project requirements from the original repository template.
 

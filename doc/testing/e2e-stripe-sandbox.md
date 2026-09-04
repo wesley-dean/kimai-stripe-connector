@@ -362,19 +362,19 @@ deterministic lower layers.
 
 ## Current and Future E2E Scenarios
 
-| Scenario                                           | Status                                                       | Purpose                                                    |
-|----------------------------------------------------|--------------------------------------------------------------|------------------------------------------------------------|
-| E2E-001 plugin lifecycle                           | Implemented and CI-exercised                                 | Install/reload/remove/reload with healthy disposable Kimai |
-| E2E-002 preview causes no Stripe mutation          | Lower-layer implemented; full real-system proof optional     | Preserve preview safety                                    |
-| E2E-003 successful invoice/card/reconciliation     | Phase 7b harness implemented; real manual run pending         | Canonical business flow                                    |
-| E2E-004 exact amount/currency/metadata             | Payment Link subset proven; hosted harness adds paid chain    | Prove exact Stripe representation                          |
-| E2E-005 declined card leaves Kimai unpaid          | Lower-layer policy covered; real hosted decline optional      | False-positive prevention                                  |
-| E2E-006 reconciliation idempotence                 | Phase 7b harness implemented; real manual run pending         | Safe rerun behavior                                        |
-| E2E-007 correct invoice among multiple invoices    | Lower-layer implemented; real-system expansion optional       | Exact target selection                                     |
-| E2E-008 plugin disabled/manual fallback            | Lower-layer/lifecycle evidence exists                        | Preserve manual operation                                  |
-| E2E-009 orphan recovery                            | Controlled layer implemented; real-system subset optional    | Partial-failure recovery                                   |
-| E2E-010 refund/dispute does not reverse paid state | Lower-layer implemented; real paid audit scenario optional   | Historical-state conservatism                              |
-| E2E-011 3DS card behavior                          | Deferred unless explicitly claimed                          | Authentication-required card support                       |
+| Scenario                                           | Status                                                     | Purpose                                                    |
+|----------------------------------------------------|------------------------------------------------------------|------------------------------------------------------------|
+| E2E-001 plugin lifecycle                           | Implemented and CI-exercised                               | Install/reload/remove/reload with healthy disposable Kimai |
+| E2E-002 preview causes no Stripe mutation          | Lower-layer implemented; full real-system proof optional   | Preserve preview safety                                    |
+| E2E-003 successful invoice/card/reconciliation     | Phase 7b harness implemented; real manual run pending      | Canonical business flow                                    |
+| E2E-004 exact amount/currency/metadata             | Payment Link subset proven; hosted harness adds paid chain | Prove exact Stripe representation                          |
+| E2E-005 declined card leaves Kimai unpaid          | Lower-layer policy covered; real hosted decline optional   | False-positive prevention                                  |
+| E2E-006 reconciliation idempotence                 | Phase 7b harness implemented; real manual run pending      | Safe rerun behavior                                        |
+| E2E-007 correct invoice among multiple invoices    | Lower-layer implemented; real-system expansion optional    | Exact target selection                                     |
+| E2E-008 plugin disabled/manual fallback            | Lower-layer/lifecycle evidence exists                      | Preserve manual operation                                  |
+| E2E-009 orphan recovery                            | Controlled layer implemented; real-system subset optional  | Partial-failure recovery                                   |
+| E2E-010 refund/dispute does not reverse paid state | Lower-layer implemented; real paid audit scenario optional | Historical-state conservatism                              |
+| E2E-011 3DS card behavior                          | Deferred unless explicitly claimed                         | Authentication-required card support                       |
 
 ## Phase 7b Acceptance Boundary
 

@@ -189,6 +189,7 @@ final readonly class StripeReconciliationGateway implements ReconciliationStripe
             $this->requiredInt($payload, 'amount_refunded', 'Charge'),
             $this->requiredString($payload, 'currency', 'Charge'),
             $this->requiredObjectId($payload, 'payment_intent', 'Charge'),
+            $this->requiredInt($payload, 'created', 'Charge'),
         );
     }
 

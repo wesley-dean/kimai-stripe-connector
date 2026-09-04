@@ -102,7 +102,7 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 
 **Status:** Accepted
 
-**Decision:** Treat Stripe/Kimai as a distributed system: use idempotency, exact rediscovery, durable metadata correlation, conflict detection, and conservative repair instead of pretending remote creation and Kimai persistence are atomic.
+**Decision:** Treat Stripe/Kimai as a distributed system: use idempotency, exact rediscovery, durable metadata correlation, conflict detection, and conservative repair instead of pretending remote creation and Kimai persistence are atomic.  Reconciliation does not claim an internal distributed lock; it revalidates Kimai immediately before mutation, remains monotonic/idempotent, and expects schedulers to avoid overlapping runs when duplicate Kimai update events would be undesirable.
 
 **Source:** [`ADR-011`](adr/ADR-011-design-for-idempotent-recovery-from-partial-failure.md)
 

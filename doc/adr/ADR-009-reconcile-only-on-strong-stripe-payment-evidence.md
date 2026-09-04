@@ -49,11 +49,14 @@ Reconciliation SHALL be safe to repeat.  Re-running it after an invoice is corre
 
 A `--dry-run` mode SHALL be provided before operational use so an operator can inspect intended changes without modifying Kimai.
 
+When automatic reconciliation marks an invoice paid, Kimai's payment date SHALL be derived from the proven Stripe Charge `created` timestamp.  The timestamp SHALL be converted to the invoice creation timezone before Kimai persists its date-only payment field.  The reconciliation execution time SHALL NOT be used as the payment date because it records when the connector observed the payment rather than when the payment occurred.
+
 ## Consequences
 
 - Paid invoices may remain temporarily unpaid in Kimai when Stripe is unavailable or evidence is ambiguous.
 - Later reconciliation runs can repair false negatives.
 - Refunds/disputes need operator-facing anomaly reporting rather than automatic historical rewriting.
+- Reconciliation latency does not distort the recorded payment date.
 - The reconciliation logic requires substantial adversarial test coverage under ADR-003.
 
 ## Considered Alternatives
@@ -65,6 +68,10 @@ Rejected because Checkout completion is not universal proof of successful final 
 ### Reconcile by amount/customer/date heuristics
 
 Rejected because those signals are insufficiently unique for automatic financial mutation.
+
+### Use reconciliation execution time as the payment date
+
+Rejected because a delayed polling run would record when the connector noticed the payment instead of when Stripe recorded the successful Charge.
 
 ### Automatically reverse paid invoices after refunds/disputes
 

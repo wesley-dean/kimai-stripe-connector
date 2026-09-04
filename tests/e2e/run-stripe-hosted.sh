@@ -286,7 +286,7 @@ link_json="$(
 )"
 payment_link_url="$(jq -er '.url | strings' <<< "${link_json}")"
 
-cat <<EOF
+cat << EOF
 
 ======================================================================
 ACTION REQUIRED: complete one Stripe-hosted TEST payment now.

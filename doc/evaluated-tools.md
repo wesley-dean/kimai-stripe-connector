@@ -106,7 +106,7 @@ The evaluation repeatedly penalized solutions that solved the requirement only b
 ## Summary
 
 | Tool                      | Historical disposition       | Primary reason                                                                                                                                              |
-| ------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|---------------------------|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Harvest                   | Replace incumbent            | Recurring commercial cost was difficult to justify for extremely low usage; not self-hosted/open-source                                                     |
 | Kimai self-hosted         | **Selected**                 | Best fit for mature self-hosted time tracking/invoicing; Stripe gap could be handled manually or through a small supported plugin                           |
 | Kimai Cloud               | Not selected                 | Hosted rather than self-hosted; did not solve the desired Stripe integration path as cleanly as self-hosted Kimai                                           |

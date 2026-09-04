@@ -81,15 +81,33 @@ Use for:
 The Kimai portion of every E2E run is ephemeral and is constructed/destroyed by
 `tests/e2e/run.sh`.
 
+## Phase 2 Primitive Coverage
+
+The Phase 2 implementation adds executable unit coverage before any real Stripe
+mutation exists.
+
+| Area                  | Repository tests                                              | Current evidence                                                                 |
+|-----------------------|---------------------------------------------------------------|----------------------------------------------------------------------------------|
+| Configuration         | `ConfigurationTest`                                           | CFG-001..010 unit behavior implemented; safe-context support for CFG-011/012      |
+| Stable identity       | `KimaiInstanceIdTest`, `ConfigurationTest`, `MetadataTest`    | Canonical non-nil UUID validation and lowercase metadata identity                |
+| Money                 | `MoneyTest`                                                   | MNY-001..008 policy represented by exact conversion and fail-closed cases         |
+| Metadata              | `MetadataTest`                                                | Version-1 write/parse validation, unknown-version rejection, Stripe value bounds |
+| Secret safety         | `SecretRedactorTest`, `ConfigurationTest`                     | Known-secret redaction and credential-free safe configuration context            |
+| Operator results      | `OperatorResultTest`                                          | ADR-013 category identifiers and success/no-change semantics                      |
+| Stripe client factory | `StripeClientFactoryTest`                                     | Restricted credential reaches SDK client; SDK API version is not overridden      |
+
+The Phase 2 Stripe client test constructs an SDK client only.  It makes no remote
+request and therefore requires no real Stripe credential.
+
 ## Configuration Backlog
 
 The `CFG-*` scenarios from `doc/configuration.md` are primarily unit tests:
 
-| IDs          | Primary layer    | Notes                                                                                        |
-|--------------|------------------|----------------------------------------------------------------------------------------------|
-| CFG-001..010 | Unit             | Configuration validity and contradiction handling                                            |
-| CFG-011..012 | Unit/integration | Secret redaction must also be checked in real startup logs                                   |
-| CFG-013      | Unit/integration | `.env` population must have identical semantics to externally supplied environment variables |
+| IDs          | Primary layer    | Status / notes                                                                                 |
+|--------------|------------------|------------------------------------------------------------------------------------------------|
+| CFG-001..010 | Unit             | Implemented in Phase 2 unit tests                                                              |
+| CFG-011..012 | Unit/integration | Pure redaction/safe-context coverage exists; real Kimai startup/log inspection remains pending |
+| CFG-013      | Unit/integration | `.env` population equivalence remains an integration/development-environment check              |
 
 ## Historical Payment-Link Backlog
 
@@ -107,12 +125,14 @@ than replacing that record.
 
 ## Money Backlog
 
-| IDs          | Primary layer | Notes                                                                                         |
-|--------------|---------------|-----------------------------------------------------------------------------------------------|
-| MNY-001..008 | Unit          | Exact decimal/minor-unit behavior, supported/unsupported currency policy, malformed precision |
+| IDs          | Primary layer | Status / notes                                                                                  |
+|--------------|---------------|-------------------------------------------------------------------------------------------------|
+| MNY-001..008 | Unit          | Implemented in Phase 2 with exact text parsing, no float/rounding, and unsupported-currency fail |
 
-Money conversion receives broad parameterized/property-style coverage because it
-is cheap and financially consequential.
+Money conversion receives broad parameterized coverage because it is cheap and
+financially consequential.  The current implementation intentionally rejects zero
+and negative invoice amounts, zero-decimal currencies, Stripe special-case
+currencies, malformed precision, and values beyond the PHP integer range.
 
 ## Reconciliation Backlog
 
@@ -168,6 +188,20 @@ and failure paths stay deterministic in the controlled layer.
 ## Threat-Model Tests
 
 `THR-*` scenarios in `doc/threat-model.md` cut across layers.
+
+Phase 2 directly implements pure unit evidence supporting:
+
+```text
+THR-001 direct Stripe secret redaction
+THR-002 file-backed Stripe secret redaction
+THR-017 contradictory direct + file-backed credentials fail configuration
+```
+
+THR-001 and THR-002 still require real startup/integration log inspection before
+the deployment boundary is considered fully proven.  THR-018 test/live mismatch
+remains a later environment/Stripe validation concern; the credential primitive can
+identify test versus live restricted keys from their prefixes, but Phase 2 does
+not invent an expected-mode configuration knob.
 
 Assign each new threat test to the lowest layer that can genuinely exercise the
 threat.  Credential/log leakage and public-ingress assumptions require integration

@@ -23,13 +23,8 @@ permissions:
   contents: read
 
 env:
-  # When active, APPLY_FIXES must be defined as an environment variable; it
-  # cannot be defined in the MegaLinter configuration file.  APPLY_FIXES may
-  # be set to one of the following values:
-  #
-  #  all: apply all fixes
-  #  none: apply no fixes
-  APPLY_FIXES: all
+  # Do not allow MegaLinter to modify source files automatically.
+  APPLY_FIXES: false
 
   # Decide which events trigger application of fixes in a commit or PR:
   #

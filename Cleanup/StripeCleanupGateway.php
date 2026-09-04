@@ -106,7 +106,10 @@ final readonly class StripeCleanupGateway implements CleanupStripeGateway
                 $exception,
             );
         } catch (MetadataException $exception) {
-            throw $this->manualReview('Stripe Payment Link metadata is invalid during cleanup revalidation.', $exception);
+            throw $this->manualReview(
+                'Stripe Payment Link metadata is invalid during cleanup revalidation.',
+                $exception,
+            );
         }
     }
 

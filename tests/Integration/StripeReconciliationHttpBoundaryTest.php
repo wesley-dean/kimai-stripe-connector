@@ -24,6 +24,7 @@ final class StripeReconciliationHttpBoundaryTest extends TestCase
 {
     private const INSTANCE_ID = '018f6f56-8f4e-7c73-9a62-2f5e4f51b9e1';
     private const OTHER_INSTANCE_ID = '0190a7b3-ec4f-7a31-8a0e-31fa10b7f6d8';
+    private const CHARGE_CREATED_AT = 1_788_541_200;
 
     private ClientInterface $originalHttpClient;
     private bool $originalTelemetry;
@@ -76,6 +77,7 @@ final class StripeReconciliationHttpBoundaryTest extends TestCase
         self::assertSame('pi_1', $candidates[0]->paymentIntent()?->id());
         self::assertSame('ch_1', $candidates[0]->charge()?->id());
         self::assertSame(87510, $candidates[0]->charge()?->amountCaptured());
+        self::assertSame(self::CHARGE_CREATED_AT, $candidates[0]->charge()?->createdAt());
 
         self::assertCount(4, $http->requests);
         self::assertStringEndsWith('/v1/payment_links', $http->requests[0]['url']);
@@ -242,6 +244,7 @@ final class StripeReconciliationHttpBoundaryTest extends TestCase
             'amount_refunded' => 0,
             'currency' => 'usd',
             'payment_intent' => 'pi_1',
+            'created' => self::CHARGE_CREATED_AT,
         ];
     }
 

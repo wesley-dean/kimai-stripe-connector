@@ -27,6 +27,10 @@ use Throwable;
  * depending on PaymentLink runtime services.  This preserves the architectural
  * rule that reconciliation can operate when automatic Payment Link generation is
  * disabled, provided connector metadata already exists in Stripe.
+ *
+ * Payment Link creation time and active state are retained when available so the
+ * later cleanup capability can reuse the same validated discovery boundary.  They
+ * do not participate in reconciliation decisions.
  */
 final readonly class StripeReconciliationGateway implements ReconciliationStripeGateway
 {
@@ -64,6 +68,8 @@ final readonly class StripeReconciliationGateway implements ReconciliationStripe
                 $links[] = new ManagedPaymentLinkEvidence(
                     $this->requiredString($payload, 'id', 'Payment Link'),
                     $this->parseMetadata($metadata, 'Payment Link'),
+                    $this->optionalInt($payload, 'created', 'Payment Link'),
+                    $this->optionalBool($payload, 'active', 'Payment Link'),
                 );
             }
 
@@ -266,11 +272,41 @@ final readonly class StripeReconciliationGateway implements ReconciliationStripe
     }
 
     /** @param array<string, mixed> $payload */
+    private function optionalInt(array $payload, string $field, string $context): ?int
+    {
+        if (!array_key_exists($field, $payload)) {
+            return null;
+        }
+
+        $value = $payload[$field];
+        if (!is_int($value)) {
+            throw $this->manualReview(sprintf('%s field "%s" is malformed.', $context, $field));
+        }
+
+        return $value;
+    }
+
+    /** @param array<string, mixed> $payload */
     private function requiredBool(array $payload, string $field, string $context): bool
     {
         $value = $payload[$field] ?? null;
         if (!is_bool($value)) {
             throw $this->manualReview(sprintf('%s field "%s" is missing or malformed.', $context, $field));
+        }
+
+        return $value;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private function optionalBool(array $payload, string $field, string $context): ?bool
+    {
+        if (!array_key_exists($field, $payload)) {
+            return null;
+        }
+
+        $value = $payload[$field];
+        if (!is_bool($value)) {
+            throw $this->manualReview(sprintf('%s field "%s" is malformed.', $context, $field));
         }
 
         return $value;

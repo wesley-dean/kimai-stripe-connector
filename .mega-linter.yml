@@ -31,6 +31,10 @@ PRINT_ALPACA: false
 # Fail the workflow when MegaLinter finds errors.
 DISABLE_ERRORS: false
 
+# Avoid API reporter chatter on private-repository pull requests.  GitHub Actions
+# itself remains the source of workflow status and report artifacts.
+GITHUB_COMMENT_REPORTER: false
+
 # Project-owned PHP linter configuration.
 PHP_PHPCS_CONFIG_FILE: phpcs.xml
 PHP_PHPSTAN_CONFIG_FILE: phpstan.neon.dist
@@ -39,7 +43,9 @@ SPELL_CSPELL_CONFIG_FILE: .cspell.json
 
 # The preserved ADR-001 rationale is intentionally a historical snapshot.  Keep
 # its prose and table whitespace unchanged; maintained Markdown remains subject to
-# markdown-table-formatter.
+# markdownlint and markdown-table-formatter.
+MARKDOWN_MARKDOWNLINT_FILTER_REGEX_EXCLUDE: >-
+  ^doc/adr/rationale/
 MARKDOWN_MARKDOWN_TABLE_FORMATTER_FILTER_REGEX_EXCLUDE: >-
   ^doc/adr/rationale/
 

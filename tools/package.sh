@@ -42,7 +42,9 @@ readonly ARCHIVE_PATH="${OUTPUT_DIR}/${ARCHIVE_NAME}"
 cleanup() {
   rm -rf "${BUILD_ROOT}"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 mkdir -p "${PLUGIN_ROOT}"
 

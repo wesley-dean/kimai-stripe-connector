@@ -12,15 +12,15 @@ ADR-004 remains authoritative for the credential model.  This document records t
 
 Create one Stripe restricted **sandbox/test-mode** key for the connector with these permissions:
 
-| Stripe resource | Permission |
-|-----------------|------------|
-| Payment Links | Write |
-| Checkout Sessions | Read |
-| Payment Intents | Read |
-| Charges | Read |
-| Products | None |
-| Prices | None |
-| All other resources | None |
+| Stripe resource   | Permission |
+|-------------------|------------|
+| Payment Links     | Write      |
+| Checkout Sessions | Read       |
+| Payment Intents   | Read       |
+| Charges           | Read       |
+| Products          | None       |
+| Prices            | None       |
+| All other resources | None     |
 
 `Payment Links: Write` supplies the Payment Link create, retrieve/list, and update/deactivation access needed by the connector.  The sandbox probe demonstrated that Stripe also accepts the connector's inline one-time `price_data` / `product_data` Payment Link request without granting separate Products or Prices permissions.
 

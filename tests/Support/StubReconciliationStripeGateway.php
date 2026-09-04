@@ -19,12 +19,14 @@ final class StubReconciliationStripeGateway implements ReconciliationStripeGatew
      * @param list<ManagedPaymentLinkEvidence> $links
      * @param array<string, list<ReconciliationCandidate>> $candidates
      * @param array<string, ReconciliationGatewayException> $candidateFailures
+     * @param array<string, list<list<ReconciliationCandidate>>> $candidateSequences
      */
     public function __construct(
         private array $links,
         private array $candidates = [],
         private array $candidateFailures = [],
         private ?ReconciliationGatewayException $linkFailure = null,
+        private array $candidateSequences = [],
     ) {
     }
 
@@ -40,13 +42,21 @@ final class StubReconciliationStripeGateway implements ReconciliationStripeGatew
     public function listCandidates(ManagedPaymentLinkEvidence $paymentLink): array
     {
         $this->candidateRequests[] = $paymentLink->id();
+        $id = $paymentLink->id();
 
-        if (isset($this->candidateFailures[$paymentLink->id()])) {
-            throw $this->candidateFailures[$paymentLink->id()];
+        if (isset($this->candidateFailures[$id])) {
+            throw $this->candidateFailures[$id];
         }
 
-        return $this->candidates[$paymentLink->id()] ?? [new ReconciliationCandidate(
-            $paymentLink->id(),
+        if (isset($this->candidateSequences[$id]) && $this->candidateSequences[$id] !== []) {
+            /** @var list<ReconciliationCandidate> $next */
+            $next = array_shift($this->candidateSequences[$id]);
+
+            return $next;
+        }
+
+        return $this->candidates[$id] ?? [new ReconciliationCandidate(
+            $id,
             $paymentLink->metadata(),
         )];
     }

@@ -25,5 +25,8 @@
     "heading_line_length": 999,
     "code_block_line_length": 999
   },
+  "MD024": {
+    "siblings_only": true
+  },
   "MD041": false
 }

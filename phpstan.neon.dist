@@ -1,6 +1,7 @@
 parameters:
     level: 8
     paths:
+        - Common
         - DependencyInjection
         - KimaiStripeConnectorBundle.php
     excludePaths:

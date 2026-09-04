@@ -44,6 +44,25 @@ PAYMENTS_ENABLED
 
 unless a later Accepted decision deliberately changes the namespace contract.
 
+## Implemented Parsing Semantics
+
+Phase 2 implements the environment parser in `Common/Configuration/EnvironmentConfigurationLoader.php`.
+
+Boolean values accept only the following case-insensitive strings:
+
+```text
+true
+false
+1
+0
+```
+
+Surrounding whitespace, `yes`/`no`, and other implicit truthy values are rejected rather than guessed.
+
+The three enablement switches default to `false` when absent.  The connector therefore remains inert by default.
+
+A Stripe credential and stable instance UUID are required only when the connector is globally enabled and at least one Stripe-backed capability is enabled.  Supplying malformed or contradictory connector-owned values can still fail validation even when the connector is otherwise disabled; disabling the connector is not a mechanism for hiding a broken configuration.
+
 ## Initial Configuration Surface
 
 The initial configuration surface is intentionally small.
@@ -56,7 +75,13 @@ KIMAI_STRIPE_CONNECTOR_ENABLED
 
 Controls whether connector behavior is globally active.
 
-When false, the connector should remain inert and ordinary Kimai behavior should continue without requiring a Stripe credential.
+When false, the connector remains inert and ordinary Kimai behavior continues without requiring a Stripe credential.
+
+Default:
+
+```text
+false
+```
 
 ### Stable Kimai instance identity
 
@@ -65,6 +90,8 @@ KIMAI_STRIPE_CONNECTOR_INSTANCE_ID
 ```
 
 Provides the stable, non-secret UUID used by the versioned Stripe metadata/correlation contract.
+
+The implementation requires a canonical, non-nil UUID and normalizes the value to lowercase for metadata output.
 
 The value SHALL remain stable across:
 
@@ -84,6 +111,12 @@ KIMAI_STRIPE_CONNECTOR_PAYMENT_LINKS_ENABLED
 
 Controls automatic Payment Link creation/recovery and invoice-rendering support.
 
+Default:
+
+```text
+false
+```
+
 ### Reconciliation capability
 
 ```text
@@ -91,6 +124,12 @@ KIMAI_STRIPE_CONNECTOR_RECONCILIATION_ENABLED
 ```
 
 Controls Stripe-to-Kimai payment reconciliation behavior.
+
+Default:
+
+```text
+false
+```
 
 ### Cleanup grace period
 
@@ -102,7 +141,16 @@ Controls the minimum age before a proven unpaid connector-managed orphan can bec
 
 The grace period applies only after the connector has established that no matching Kimai invoice exists.  It does not make an ordinary unpaid invoice link disposable merely because the link is old.
 
-The final default and accepted numeric bounds remain implementation details and must be documented and tested when configuration parsing is implemented.
+The implemented parsing contract is:
+
+```text
+default: 7 days
+minimum: 1 day
+maximum: 3650 days
+syntax:  positive base-10 integer without a sign, fraction, or leading zero
+```
+
+The upper bound exists primarily to catch obvious deployment mistakes while still allowing unusually conservative retention policies.  Changing these values later is configuration behavior and requires tests under ADR-003.
 
 ### Stripe restricted API credential
 
@@ -119,6 +167,15 @@ KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY_FILE
 ```
 
 The first implementation uses one least-privilege Stripe restricted API key under ADR-004.  These two variables are alternative delivery mechanisms for that same credential, not separate Stripe roles or separate credentials.
+
+The implemented credential validator accepts restricted Stripe key shapes beginning with:
+
+```text
+rk_test_
+rk_live_
+```
+
+and rejects broad `sk_` secret keys.  This makes the Accepted least-privilege credential model an executable configuration boundary rather than deployment advice only.
 
 The direct form is useful for disposable local or CI test environments.
 
@@ -141,6 +198,8 @@ It should not carry unrelated payout, subscription, customer-management, account
 The exact Stripe dashboard permission labels remain to be verified against a real restricted sandbox key.  Once verified, they should be recorded in operator/deployment documentation and covered by sandbox validation.
 
 The connector SHALL fail clearly when the supplied credential lacks a required permission.
+
+Phase 2 does not make a Stripe API request, so no real Stripe credential is needed to build or validate the Phase 2 primitives.
 
 ## Secret Resolution
 
@@ -178,11 +237,19 @@ Silent precedence is particularly undesirable during key rotation or incident re
 
 Any future change to this behavior requires documentation and tests under ADR-003.
 
+### Direct secret handling
+
+The direct value is validated as supplied.  The connector does not silently trim or rewrite a directly supplied credential.
+
+This is deliberate: invisible whitespace or other mutation in deployment configuration should produce a configuration error instead of making the effective credential differ from the configured value.
+
 ### File path handling
 
-The file-backed form is intentionally runtime-agnostic.  The connector should not require `/run/secrets` specifically unless implementation evidence demonstrates a security need strong enough to justify reducing portability.
+The file-backed form is intentionally runtime-agnostic.  The connector does not require `/run/secrets` specifically.
 
 The path is deployment-controlled configuration and SHALL be treated as security-sensitive input.  Failure to read the configured file is a configuration error, not a reason to fall back silently to another secret source.
+
+The file contents are trimmed before credential validation so ordinary mounted-secret files with a terminal newline work as expected.  A file that is blank after trimming is a configuration error.
 
 ## `.env` Support
 
@@ -194,6 +261,8 @@ A `.env` file MAY be used for:
 - disposable unit/integration environments;
 - disposable E2E environments; or
 - developer convenience where the file is not committed and the surrounding runtime handles it safely.
+
+The connector does not implement a second `.env` parser or precedence system.  A surrounding runtime or development tool may populate the same `KIMAI_STRIPE_CONNECTOR_*` process environment values from a `.env` file; once populated, they use exactly the same parser and validation path as externally supplied environment variables.
 
 The repository SHALL NOT commit real `.env` files containing credentials.
 
@@ -241,6 +310,8 @@ KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY=<Stripe sandbox restricted key>
 
 The direct secret form is acceptable in a controlled ephemeral environment when CI/logging configuration prevents disclosure.
 
+Unit tests do not need a real key.  They construct synthetic restricted-key-shaped values at runtime and perform no Stripe request.
+
 No test should use a live Stripe key unless explicitly authorized for a live-payment exercise, which is outside ordinary repository CI.
 
 ## Deployment Values Versus Plugin Behavior
@@ -284,6 +355,8 @@ Several accepted version-1 behaviors are deliberately fixed rather than configur
 
 The connector follows the API version associated with the exact installed Stripe PHP SDK under ADR-004.  There is no independent `KIMAI_STRIPE_CONNECTOR_STRIPE_API_VERSION` setting in the initial contract.
 
+The Phase 2 Stripe client factory intentionally omits a `stripe_version` override and supplies only the restricted API key plus non-secret application identification.
+
 ### Payment methods
 
 Version 1 supports card payments only.  The connector should not expose an arbitrary payment-method configuration knob before additional lifecycle semantics are designed and tested.
@@ -296,20 +369,23 @@ The initial metadata contract is version 1.  Operators do not choose an arbitrar
 
 Version 1 accepts only the currency/amount semantics defined by ADR-004.  Unsupported money semantics fail closed rather than becoming runtime configuration guesses.
 
+The Phase 2 implementation supports ordinary two-decimal Stripe presentment currencies and explicitly rejects zero-decimal currencies and currencies with Stripe-specific special representation rules.  Decimal amounts are parsed as strings and must be exactly representable in hundredths; binary floating point and rounding are not used.
+
 ## Validation Rules
 
 Configuration SHALL fail early and visibly when it is contradictory, malformed, or unsafe.
 
-Expected validation includes:
+Implemented validation includes:
 
 - connector disabled with no credential -> valid inert configuration;
-- connector enabled with a usable direct credential -> valid;
-- connector enabled with a readable file-backed credential -> valid;
+- active Stripe-backed capability with a usable direct restricted credential -> valid;
+- active Stripe-backed capability with a readable file-backed restricted credential -> valid;
 - both credential forms configured -> configuration error;
+- broad `sk_` credential -> configuration error;
 - configured secret file missing -> configuration error;
 - configured secret file unreadable -> configuration error;
 - configured secret file blank after trimming -> configuration error;
-- capability requiring correlation enabled without a valid instance UUID -> configuration error;
+- active correlation-capable behavior without a valid instance UUID -> configuration error;
 - malformed boolean -> configuration error;
 - invalid cleanup grace period -> configuration error; and
 - unsupported or contradictory runtime state -> fail closed with a clear operator result.
@@ -335,6 +411,8 @@ They SHALL NOT report:
 - environment dumps containing the key;
 - full configuration structures containing the key; or
 - command lines or exception messages that expose the key.
+
+Phase 2 provides a safe configuration log-context representation that intentionally excludes the credential value, plus deterministic redaction for known secret strings.  Integration/startup logging must use these boundaries rather than dumping configuration objects.
 
 The reference Kimai container has exhibited shell-tracing behavior capable of exposing environment values.  Secret-safe operation must therefore consider container/entrypoint logging in addition to application logging.
 
@@ -372,7 +450,7 @@ CFG-012 logs do not contain file-backed secret contents
 CFG-013 .env-populated values behave identically to externally supplied values
 ```
 
-These identifiers describe required coverage.  They are not all implemented merely because they are documented.
+Phase 2 provides unit coverage for CFG-001 through CFG-010 and pure redaction/safe-context coverage supporting CFG-011 and CFG-012.  Real Kimai startup/integration log inspection remains required before CFG-011/012 are considered fully proven at the deployment boundary.  CFG-013 remains an integration/development-environment check because the connector intentionally does not own `.env` parsing.
 
 Any future configuration behavior change requires appropriate automated tests under ADR-003.
 

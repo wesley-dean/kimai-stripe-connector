@@ -38,7 +38,7 @@ final readonly class InvoicePaymentLinkSubscriber implements EventSubscriberInte
     /**
      * @brief Attach a proven Payment Link URL to a real invoice or stop rendering safely.
      *
-     * @throws PaymentLinkGenerationException When automatic payment-link generation is enabled but cannot complete safely.
+     * @throws PaymentLinkGenerationException When enabled automation cannot complete safely.
      */
     public function onInvoicePreRender(InvoicePreRenderEvent $event): void
     {

@@ -37,21 +37,25 @@ Before substantive project work, read these documents in order:
 2. `doc/decisions.md`
 3. `doc/project-handoff.md`
 4. `doc/configuration.md`
-5. `doc/threat-model.md`
-6. `doc/evaluated-tools.md`
-7. `doc/reference-hosting-environment.md`
-8. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
-9. `doc/adr/ADR-001-single-plugin-architecture.md`
-10. `doc/testing/preimplementation-mock-exercise.md`
-11. `doc/testing/e2e-stripe-sandbox.md`
-12. `README.md`
-13. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
+5. `doc/documentation.md`
+6. `doc/threat-model.md`
+7. `doc/evaluated-tools.md`
+8. `doc/reference-hosting-environment.md`
+9. `doc/adr/ADR-000-capability-scope-and-epistemic-honesty.md`
+10. `doc/adr/ADR-001-single-plugin-architecture.md`
+11. `doc/adr/ADR-002-documentation-first-php-comments-and-generated-reference-docs.md`
+12. `doc/testing/preimplementation-mock-exercise.md`
+13. `doc/testing/e2e-stripe-sandbox.md`
+14. `README.md`
+15. `CONTRIBUTING.md`, `SECURITY.md`, and relevant repository automation/configuration
 
 Use `doc/decisions.md` as the fast index of accepted and proposed ADR decisions.  It is intentionally concise and should help determine which ADRs are relevant to the task at hand.  It is not authoritative over the ADRs themselves: when implementing, reviewing, or interpreting a decision, read the referenced ADR in full.  If `doc/decisions.md` conflicts with an ADR, the ADR controls.
 
 When an ADR is added, accepted, superseded, deprecated, or materially revised, update `doc/decisions.md` in the same change so the index remains trustworthy.
 
 Use `doc/configuration.md` as the current configuration contract.  Environment variables are primary, file-backed secret injection is preferred for sensitive containerized production values, and `.env` files are tertiary development/test convenience only.  Do not introduce a parallel configuration model or generic non-namespaced Stripe variables without documenting the change.
+
+Use `doc/documentation.md` as the normative PHP source-documentation standard.  It adapts the documentation-first Doxygen conventions used by `bootstrap` and `adrctl` to native PHPDoc/Doxygen syntax and to this project's financial-state and security responsibilities.  Do not substitute sparse framework-style PHPDoc when a method or helper owns consequential invariants, failure behavior, security assumptions, or side effects.
 
 Use `doc/threat-model.md` before implementing security-sensitive behavior, especially Stripe credential handling, Payment Link creation/recovery, reconciliation, cleanup, CLI commands, logging, test-only endpoint overrides, or release packaging.  Treat it as a living model: update it when implementation adds or materially changes a trust boundary, privilege, external interface, persistence mechanism, supported payment lifecycle, or distribution path.
 
@@ -66,6 +70,8 @@ Do not infer missing project requirements from the original repository template.
 At the time this guidance was introduced, the repository was in the design/documentation stage.  There was no production Kimai plugin implementation in the repository.
 
 ADR-001 is `Proposed`, not `Accepted`.  The architecture has been researched and modeled, but it still requires a real Kimai plugin implementation and Stripe test-mode validation before acceptance.
+
+ADR-002 is `Proposed`.  Until its status changes, implementation work should nevertheless follow the documented source-comment standard when working on the proposed architecture so documentation and code do not begin life with different conventions.
 
 The historical mock exercise reported 103 passing synthetic cases.  Those cases are design evidence, not repository CI evidence.  Do not describe the project as having 103 executable tests until equivalent tests actually exist in the repository.
 
@@ -127,7 +133,7 @@ Important examples:
 
 ## Documentation Philosophy
 
-For architecture, security, reconciliation logic, compatibility, and financial-state behavior, more documentation is preferred to premature compression.
+For architecture, security, reconciliation logic, compatibility, financial-state behavior, and source implementation contracts, more documentation is preferred to premature compression.
 
 Capture:
 
@@ -153,6 +159,41 @@ When introducing or changing a security boundary, credential scope, external int
 When changing autonomous execution order, stop conditions, or phase expectations, update `doc/implementation-playbook.md`.
 
 Distinguish facts, design decisions, inferences, synthetic evidence, and unresolved questions.
+
+### Source Documentation Standards
+
+Follow `doc/documentation.md` and ADR-002 for maintained PHP source.
+
+Use Doxygen-compatible PHPDoc blocks where applicable for files/modules, public classes/interfaces/traits/enums, public methods/functions, non-trivial private/protected helpers, important properties/constants, configuration boundaries, value objects, validation guards, and safety-sensitive behavior.
+
+Use PHP-native declarations as the authoritative type shape.  Documentation should add semantic information rather than restating types.
+
+Applicable documentation should explain purpose, parameters, return semantics, exceptions, preconditions, assumptions, invariants, side effects, ownership, failure modes, security considerations, idempotency, concurrency, compatibility, non-goals, and realistic examples when those details materially improve understanding.
+
+Use the Doxygen concepts established by the sibling repositories in a PHP-appropriate form, including `@file`, `@brief`, `@details`, `@param`, `@return`, `@retval`, `@throws`, `@var`, `@see`, `@deprecated`, `@todo`, `@par`, and `@code` / `@endcode` where applicable.  Do not add redundant synthetic `@fn` declarations to normal PHP methods merely to mimic Bash source.
+
+Financial-state, correlation, reconciliation, cleanup, and credential-handling code should receive especially explicit documentation because its safety properties cannot be judged from signatures alone.
+
+Documentation-only source work must preserve executable behavior.  Do not opportunistically refactor code while documenting it.  If intent cannot be established from repository evidence, add a specific `@todo` that identifies the uncertainty rather than inventing rationale.
+
+Generated Doxygen HTML lives under `doc/reference/`, is ignored by Git, and is never edited manually.  Run `make docs` after changing relevant PHP source documentation.  The documentation workflow is expected to fail on Doxygen documentation warnings once PHP source exists; do not hide or downgrade warnings merely to obtain a green check.
+
+Documentation roles remain distinct:
+
+- README: human-facing orientation and use;
+- AGENTS: contributor/agent operating guidance;
+- ADRs: durable architectural rationale and history;
+- `doc/decisions.md`: ADR discovery/index;
+- `doc/connector-spec.md`: current public behavior once established;
+- `doc/configuration.md`: configuration contract;
+- `doc/threat-model.md`: security model;
+- `doc/testing/`: test strategy and evidence;
+- `doc/documentation.md`: source-documentation requirements;
+- PHP source comments: implementation contracts;
+- `doc/reference/`: generated Doxygen reference output; and
+- `doc/project-handoff.md`: cross-session continuity.
+
+Do not use source comments or tests as substitutes for updating a public behavioral specification once one exists.
 
 ## Testing Philosophy
 
@@ -252,5 +293,7 @@ If the session changed configuration behavior, update `doc/configuration.md`.
 If the session changed a trust boundary, privilege, destructive action, external interface, persistence layer, supported payment lifecycle, or distribution path, update `doc/threat-model.md`.
 
 If the session changed the execution sequence or autonomy/stop-condition policy, update `doc/implementation-playbook.md`.
+
+If the session changed source-documentation expectations or Doxygen generation, update `doc/documentation.md`, ADR-002 as appropriate, and the documentation workflow/tooling in the same coherent change.
 
 The repository should be sufficient context for a new chat/session without relying on memory from an earlier conversation.

@@ -1,0 +1,9 @@
+parameters:
+    level: 8
+    paths:
+        - DependencyInjection
+        - KimaiStripeConnectorBundle.php
+    excludePaths:
+        analyse:
+            - vendor
+            - tests

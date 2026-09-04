@@ -38,21 +38,22 @@ Before substantive work:
 1. `doc/implementation-playbook.md`
 2. `doc/decisions.md`
 3. `doc/project-handoff.md`
-4. `doc/operator-runbook.md`
-5. `doc/configuration.md`
-6. `doc/threat-model.md`
-7. `doc/documentation.md`
-8. `doc/testing/test-matrix.md`
-9. relevant ADRs discovered through `doc/decisions.md`
-10. `doc/testing/preimplementation-mock-exercise.md`
-11. `doc/testing/e2e-stripe-sandbox.md`
-12. `doc/reference-hosting-environment.md`
-13. `README.md`
-14. relevant CI/tooling/contribution files
+4. `doc/INSTALL.md`
+5. `doc/operator-runbook.md`
+6. `doc/configuration.md`
+7. `doc/threat-model.md`
+8. `doc/documentation.md`
+9. `doc/testing/test-matrix.md`
+10. relevant ADRs discovered through `doc/decisions.md`
+11. `doc/testing/preimplementation-mock-exercise.md`
+12. `doc/testing/e2e-stripe-sandbox.md`
+13. `doc/reference-hosting-environment.md`
+14. `README.md`
+15. relevant CI/tooling/contribution files
 
 `doc/decisions.md` is an index, not a substitute for ADRs.  If an index summary conflicts with an ADR, the ADR controls.
 
-`doc/operator-runbook.md` is the operational guide for routine commands, incident response, credential rotation, disablement/removal, and manual fallback.  It does not override an Accepted ADR or the explicit configuration/security contracts.
+`doc/INSTALL.md` is the installation/upgrade/removal guide for the self-contained plugin artifact.  `doc/operator-runbook.md` is the operational guide for routine commands, incident response, credential rotation, disablement/removal, and manual fallback.  Neither overrides an Accepted ADR or the explicit configuration/security contracts.
 
 All current numbered ADRs (000–013) are Accepted as of 2026-09-04.
 
@@ -130,7 +131,18 @@ KimaiPlugin\KimaiStripeConnectorBundle\
 
 Production artifacts carry plugin-local Composer dependencies under `vendor/` and load that autoloader without modifying Kimai's root Composer files.
 
-Source control does not commit `vendor/`.
+The deterministic artifact build is:
+
+```text
+make package VERSION=<version>
+```
+
+which creates the installable ZIP and matching SHA-256 file under `dist/`.
+`make package-check` verifies package contents and byte-for-byte reproducibility.
+Disposable Kimai E2E installs the generated ZIP itself.  GitHub-generated source
+archives are not ADR-012 installable artifacts.
+
+Source control does not commit generated `vendor/` or `dist/` output.
 
 ## Configuration
 
@@ -159,6 +171,7 @@ Behavioral examples requiring tests:
 - Kimai event integration;
 - reconciliation/cleanup rules;
 - retry/error handling;
+- package/release behavior;
 - compatibility changes; and
 - bug fixes.
 
@@ -179,8 +192,10 @@ The Kimai environment is ephemeral by design:
 ```text
 construct fresh Compose project and volumes
 -> start Kimai 2.65.0 + MySQL
--> install plugin
+-> build and extract self-contained plugin ZIP
+-> install packaged plugin
 -> reload/verify
+-> exercise disabled reconciliation/cleanup commands
 -> remove plugin
 -> reload/verify
 -> docker compose down --volumes --remove-orphans
@@ -267,7 +282,7 @@ APPLY_FIXES: false
 
 A green workflow is not enough if its report contains warnings.  Required completion state is zero MegaLinter errors and zero MegaLinter warnings.
 
-The repository also includes PHP matrix CI, disposable Kimai E2E, documentation generation, pre-commit checks, Dependabot, and semver/release automation.
+The repository also includes PHP matrix CI, deterministic Package CI, disposable Kimai E2E, documentation generation, pre-commit checks, Dependabot, and semver/release automation.
 
 Do not weaken checks merely to obtain green status.
 

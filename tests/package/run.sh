@@ -27,7 +27,9 @@ readonly WORK_ROOT
 cleanup() {
   rm -rf "${WORK_ROOT}"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 readonly FIRST_OUTPUT="${WORK_ROOT}/first"
 readonly SECOND_OUTPUT="${WORK_ROOT}/second"

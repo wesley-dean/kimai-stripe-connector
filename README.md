@@ -18,7 +18,7 @@ Kimai does not need public Internet ingress and Stripe webhooks are not required
 
 ## Project Status
 
-Phases 1 through 3 are merged.  Phase 4 reconciliation is under active development in draft PR #9.
+Phases 1 through 4 are merged.  Phase 5 conservative orphan cleanup is under active development in draft PR #10.
 
 The repository now contains:
 
@@ -34,10 +34,12 @@ The repository now contains:
 - fail-closed reconciliation planning and batch orchestration;
 - a Kimai paid-state persistence adapter with last-moment consistency checks;
 - the external `kimai:stripe:reconcile` command with `--dry-run` and stable exit codes;
+- Phase 5 conservative orphan-cleanup planning and a narrowly scoped Payment Link deactivation boundary on the draft branch;
+- the draft `kimai:stripe:cleanup` command with `--dry-run` and the same operator-result taxonomy;
 - a manual real-Stripe sandbox contract probe; and
 - detailed design/testing/threat/configuration/handoff documentation.
 
-PR #9 remains draft until its Phase 4 implementation, documentation, and final-head validation are complete.  Do not treat draft branch behavior as a released compatibility promise.
+PR #10 remains draft until its Phase 5 implementation, documentation, and exact-head validation are complete.  Do not treat draft branch behavior as a released compatibility promise.
 
 ## Start Here
 
@@ -91,7 +93,7 @@ Current independent decisions are split into focused ADRs, including:
 - conservative orphan cleanup;
 - idempotent partial-failure recovery;
 - self-contained plugin packaging; and
-- stable operator result categories and reconciliation exit codes.
+- stable operator result categories and scheduler-facing exit codes.
 
 Use the decision index to find the authoritative ADR rather than relying on this summary.
 
@@ -106,11 +108,13 @@ The connector preserves several important boundaries:
 - Kimai does not require public ingress.
 - Stripe webhooks are not required.
 - Payment Link creation and reconciliation are independently disableable.
+- Cleanup is an operator-invoked maintenance action on the reconciliation side of the initial two-capability architecture.
 - Manual Payment Link creation and manual Kimai reconciliation remain permanent fallbacks.
 - Ambiguous financial state fails closed.
 - False negatives are preferred to false-positive paid-state transitions.
 - Paid Stripe orphans are accounting exceptions, not cleanup garbage.
 - Refunds/disputes do not automatically rewrite historical paid state.
+- Age alone never authorizes destructive cleanup.
 
 ## Initial Compatibility Scope
 
@@ -161,6 +165,31 @@ Human output includes the stable ADR-013 result category.  Process exit codes ar
 For a safe multi-invoice batch, independent invoices may continue after an item-level problem and the final process code is the highest applicable mapped code.
 
 When an automatic transition succeeds, Kimai's payment date is derived from the proven Stripe Charge creation timestamp, converted to the invoice creation timezone before Kimai stores its date-only payment field.  The later reconciliation execution time is not used as the accounting date.
+
+## Cleanup Command
+
+Phase 5 adds an operator-invoked maintenance command:
+
+```text
+php bin/console kimai:stripe:cleanup
+php bin/console kimai:stripe:cleanup --dry-run
+```
+
+Cleanup is intentionally outside the billing correctness path.  It can only deactivate a connector-managed Stripe Payment Link when the connector proves that no matching Kimai invoice exists, the link is at or beyond the configured grace period, the Payment Link remains active, and observed Stripe payment state is conclusively unpaid rather than merely lacking proof of success.
+
+The initial conclusively-unpaid policy is deliberately narrow: no Checkout Sessions, or expired/unpaid attempts with no Charge and no received money.  Open, processing, unknown, contradictory, paid, refunded, disputed, or otherwise ambiguous evidence retains the Payment Link.
+
+Before an actual deactivation, cleanup repeats the Kimai invoice lookup and Stripe child-evidence discovery.  The Stripe writer then retrieves the Payment Link again and validates exact ID, metadata, creation time, and active state before setting `active=false`.
+
+The command accepts no invoice number, Payment Link ID, or desired Stripe state.  It uses the same ADR-013 process exit-code mapping as reconciliation.
+
+Cleanup requires the existing global and reconciliation switches.  There is no third cleanup capability switch in the initial architecture.  The grace period is controlled by:
+
+```text
+KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS
+```
+
+with a default of 7 days.
 
 ## Plugin Packaging
 
@@ -214,6 +243,7 @@ creates fresh Compose project + named volumes
 -> stages plugin source with composer install --no-dev from composer.lock
 -> installs the production-shaped stage under var/plugins
 -> reloads and verifies Kimai
+-> exercises disabled reconciliation/cleanup commands without Stripe access
 -> removes plugin
 -> reloads and verifies Kimai again
 -> destroys containers, network, every named volume, and the local stage
@@ -262,7 +292,7 @@ DISABLE_ERRORS: false
 APPLY_FIXES: false
 ```
 
-A successful workflow is considered clean only when MegaLinter reports zero errors and zero warnings.
+A successful workflow is considered clean only when MegaLinter reports zero errors and zero warnings across every enabled linter.
 
 The repository also runs:
 
@@ -285,6 +315,8 @@ KIMAI_STRIPE_CONNECTOR_*
 Environment variables are the primary configuration interface.  File-backed secret injection is preferred for sensitive production/container values.  `.env` support is tertiary local/dev/test convenience.
 
 Reconciliation requires the global connector switch, reconciliation capability switch, stable instance UUID, and restricted Stripe credential.  Payment Link generation may remain independently disabled.
+
+Cleanup uses that same reconciliation-side configuration and additionally applies `KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS`.  It does not introduce a separate cleanup enablement variable.
 
 See [`doc/configuration.md`](doc/configuration.md).
 

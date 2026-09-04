@@ -75,6 +75,20 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 | DI / production packaging    | disposable Kimai E2E                   | Production-shaped plugin installation/reload/removal verifies real Kimai can construct registered Phase 4 services                                                                                                    |
 | Real paid sandbox E2E        | future extension of sandbox workflow   | Hosted test-card Checkout and exact Kimai paid mutation remain intentionally unclaimed until implemented and run                                                                                                      |
 
+## Phase 5 Cleanup Coverage
+
+| Area                         | Repository tests                       | Current evidence                                                                                                                                                                                                                                                 |
+|------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Pure cleanup decision        | `CleanupPlannerTest`                   | Existing Kimai invoice, exact grace boundary, in-grace object, missing/future age, missing/inactive state, multiple links, paid orphan, open Session, terminal unpaid Session/PaymentIntent, processing/unknown ambiguity, empty evidence                        |
+| Cleanup orchestration        | `CleanupServiceTest`                   | `--dry-run`-equivalent no-write path, actual deactivation, second Kimai lookup, managed-link rediscovery, child-evidence rediscovery, competing link appearing before mutation, payment appearing before mutation, retryable writer failure                      |
+| Stripe read evidence         | `StripeReconciliationHttpBoundaryTest` | Locked SDK Payment Link discovery retains Stripe `created` and `active` evidence while preserving Phase 4 read-only Session/PaymentIntent/Charge traversal                                                                                                       |
+| Stripe mutation boundary     | `StripeCleanupHttpBoundaryTest`        | Locked SDK target retrieve before update, exact metadata check, idempotent already-inactive result, `active=false` request encoding, update confirmation, retryable uncertain update outcome                                                                     |
+| External cleanup command     | `CleanupCommandTest`                   | Disabled no-op, missing credential, `--dry-run`, eligible deactivation, conflict, paid orphan/manual review, retryable discovery, retryable deactivation, generic internal-error output, shared ADR-013 exit-code mapping                                        |
+| DI / production packaging    | disposable Kimai E2E                   | Production-shaped Kimai 2.65 plugin installation constructs both reconciliation and cleanup commands; disabled `--dry-run` invocations prove registration/autowiring without Stripe credential or mutation                                                       |
+| Real Stripe cleanup behavior | existing sandbox contract probe        | Real sandbox has proven connector-created Payment Link deactivation with the existing restricted-key permission; the Phase 5 eligibility/revalidation algorithm itself remains deterministic lower-layer evidence rather than an active real-account cleanup run |
+
+The Phase 5 destructive decision is deliberately stricter than an ordinary reconciliation `NO_CHANGE`.  Lack of successful payment proof is insufficient: automatic cleanup requires positively supported terminal/unpaid evidence.  Open, processing, unknown, contradictory, partially financial, or otherwise ambiguous Stripe state is retained.
+
 The PHPUnit suite explicitly includes both `tests/Unit` and `tests/Integration`.  This prevents controlled-SDK tests from existing in the repository without actually executing under `composer check`.
 
 ## Historical Payment-Link Scenario Status
@@ -144,7 +158,7 @@ The probe also proves:
 
 The first real run exposed an order-sensitive local metadata assertion.  Stripe creation and cleanup succeeded.  The test was corrected to canonical metadata comparison and subsequent runs passed.
 
-The current probe does **not** prove hosted card Checkout, a real paid PaymentIntent/Charge chain, or Kimai reconciliation.  Those remain future real-E2E evidence and must not be implied by lower-layer green tests.
+The current probe does **not** prove hosted card Checkout, a real paid PaymentIntent/Charge chain, Kimai reconciliation, or the complete Phase 5 cleanup eligibility/revalidation loop against a real Stripe account.  Those remain future real-E2E evidence and must not be implied by lower-layer green tests.
 
 ## Configuration Backlog
 
@@ -162,36 +176,36 @@ A `.env` file remains only one possible mechanism for populating process environ
 |--------------|---------------|--------------------------------------------------------------------------------------------------------------------------------|
 | MNY-001..008 | Unit          | Implemented with exact text parsing, shared framework-float conversion, no rounding, fail-closed currencies, and Stripe bounds |
 
-## Cleanup Backlog
+## Cleanup Scenario Status
 
-| IDs          | Primary layer                            | Status / notes                                                                                               |
-|--------------|------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| CLN-001..009 | Unit/controlled Stripe/Kimai integration | General cleanup logic pending; sandbox probe already proves connector-created unpaid link deactivation works |
+| IDs          | Primary layer                            | Status / notes                                                                                                                                                                                       |
+|--------------|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CLN-001..009 | Unit/controlled Stripe/Kimai integration | Implemented through Phase 5 planner/service/command/locked-SDK coverage for conservative eligibility, dry-run, stale unpaid deactivation, paid/ambiguous retention, failures, and revalidation races |
 
-Paid or uncertain objects must remain conservative.  Sandbox cleanup evidence does not authorize deleting accounting-significant production objects.
+Paid, open, processing, unknown, or uncertain objects remain conservative.  Sandbox deactivation evidence proves the Stripe permission/API operation, while the destructive eligibility policy remains deterministic repository evidence.
 
 ## Network and Concurrency Backlog
 
-| IDs          | Primary layer                         | Status / notes                                                                                                                                    |
-|--------------|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| NET-001..008 | Controlled Stripe/network             | Payment Link and reconciliation adapters cover key API failure/retry paths; remaining synthetic fault cases stay lower-layer work                 |
-| CON-001..004 | Controlled Stripe/concurrency harness | Kimai persistence now re-reads before mutation and handles already-paid races; broader simultaneous-process locking/load scenarios remain pending |
+| IDs          | Primary layer                         | Status / notes                                                                                                                                                                                                                                                        |
+|--------------|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| NET-001..008 | Controlled Stripe/network             | Payment Link, reconciliation, and cleanup adapters cover key API failure/retry paths; remaining synthetic fault cases stay lower-layer work                                                                                                                           |
+| CON-001..004 | Controlled Stripe/concurrency harness | Kimai paid persistence re-reads before mutation; cleanup now re-queries Kimai, managed links, child payment evidence, and the target before deactivation.  Full simultaneous-process locking/load scenarios remain intentionally outside the connector-owned contract |
 
 These scenarios shall not be implemented solely as real Stripe E2E tests because timing/failure induction would be nondeterministic and inappropriate for Stripe's sandbox.
 
 ## Kimai Integration Status
 
-| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                           |
-|--------------|----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| KIM-001..012 | Disposable Kimai integration/E2E | Plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; paid persistence is modeled against the verified Kimai 2.65 public API and still needs canonical full paid E2E before a release-level claim |
+| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                                                                                |
+|--------------|----------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| KIM-001..012 | Disposable Kimai integration/E2E | Plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; paid persistence is modeled against verified Kimai 2.65 APIs; both scheduler commands construct in real Kimai; canonical full paid E2E remains required before that stronger release-level claim |
 
 The disposable Kimai lifecycle harness remains the canonical ephemeral host fixture.
 
 ## Stripe Contract Status
 
-| IDs          | Primary layer                                        | Status / notes                                                                                                                                                                                                               |
-|--------------|------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| STR-001..011 | Controlled Stripe plus representative sandbox subset | Payment Link create/read/restriction/money/metadata/permission subset is real-sandbox proven; reconciliation GET request/object-chain behavior is controlled-SDK proven; hosted paid object chain remains future sandbox E2E |
+| IDs          | Primary layer                                        | Status / notes                                                                                                                                                                                                                                                            |
+|--------------|------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| STR-001..011 | Controlled Stripe plus representative sandbox subset | Payment Link create/read/deactivate/money/metadata/permission subset is real-sandbox proven; reconciliation GET and cleanup target-update request behavior are controlled-SDK proven; hosted paid object chain and complete active cleanup loop remain future sandbox E2E |
 
 Real sandbox tests should prove only assumptions that require Stripe.  Hostile response shapes and fault injection remain deterministic controlled tests.
 
@@ -207,7 +221,7 @@ THR-017 contradictory direct + file-backed credentials fail configuration
 
 The real Stripe workflow additionally demonstrates environment-secret injection where the credential is provided only to the final probe step, while checkout/setup/dependency-install steps do not receive it.
 
-The reconciliation command accepts no arbitrary target invoice or desired state, reducing the command surface to evidence-derived transitions.  Real deployment-boundary startup/log inspection remains necessary before all secret-leakage scenarios are considered fully proven.
+The reconciliation and cleanup commands accept no arbitrary target invoice, Payment Link, or desired state.  This keeps their mutation surfaces evidence-derived.  Real deployment-boundary startup/log inspection remains necessary before all secret-leakage scenarios are considered fully proven.
 
 ## Pull Request Coverage Rule
 

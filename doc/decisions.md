@@ -94,7 +94,7 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 
 **Status:** Accepted
 
-**Decision:** Automatically deactivate only connector-managed orphan Payment Links proven stale, unpaid, unmatched to Kimai, and safe to remove.  Retain uncertainty, valid invoices, recent objects, and paid orphans.
+**Decision:** Automatically deactivate only current-instance connector-managed orphan Payment Links when successful Kimai lookup proves no invoice exists, exactly one managed link remains, the configured grace age is satisfied, and Stripe payment state is positively proven terminal/unpaid.  Revalidate Kimai, the managed-link set, payment evidence, and the target immediately before the narrow `active=false` mutation; retain paid, open, processing, unknown, contradictory, or otherwise ambiguous states.  Cleanup is reconciliation-side maintenance with `--dry-run` and no third capability switch in the initial architecture.
 
 **Source:** [`ADR-010`](adr/ADR-010-clean-up-only-proven-unpaid-orphan-payment-links.md)
 
@@ -102,7 +102,7 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 
 **Status:** Accepted
 
-**Decision:** Treat Stripe/Kimai as a distributed system: use idempotency, exact rediscovery, durable metadata correlation, conflict detection, and conservative repair instead of pretending remote creation and Kimai persistence are atomic.  Reconciliation does not claim an internal distributed lock; it revalidates Kimai immediately before mutation, remains monotonic/idempotent, and expects schedulers to avoid overlapping runs when duplicate Kimai update events would be undesirable.
+**Decision:** Treat Stripe/Kimai as a distributed system: use idempotency, exact rediscovery, durable metadata correlation, conflict detection, and conservative repair instead of pretending remote operations and Kimai persistence are atomic.  Reconciliation uses last-moment Kimai revalidation and a monotonic paid transition; cleanup repeats Kimai, managed-link, payment-evidence, and target revalidation before idempotent `active=false`.  Neither path claims connector-owned distributed locking or cross-system atomicity, and schedulers should avoid overlapping runs.
 
 **Source:** [`ADR-011`](adr/ADR-011-design-for-idempotent-recovery-from-partial-failure.md)
 
@@ -118,6 +118,6 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 
 **Status:** Accepted
 
-**Decision:** Use stable operator-facing categories `SUCCESS`, `NO_CHANGE`, `RETRYABLE`, `CONFIGURATION_ERROR`, `CONFLICT`, `MANUAL_REVIEW_REQUIRED`, and `INTERNAL_ERROR` across CLI behavior, logs, tests, and runbooks.  The reconciliation CLI maps those categories to stable exit codes `0`, `10`, `20`, `30`, `40`, and `50`, with successful categories sharing zero and batch execution returning the highest applicable mapped code.
+**Decision:** Use stable operator-facing categories `SUCCESS`, `NO_CHANGE`, `RETRYABLE`, `CONFIGURATION_ERROR`, `CONFLICT`, `MANUAL_REVIEW_REQUIRED`, and `INTERNAL_ERROR` across CLI behavior, logs, tests, and runbooks.  Reconciliation and cleanup both map those categories to stable exit codes `0`, `10`, `20`, `30`, `40`, and `50`, with successful categories sharing zero and safe batch execution returning the highest applicable mapped code.
 
 **Source:** [`ADR-013`](adr/ADR-013-use-stable-operator-result-taxonomy.md)

@@ -84,8 +84,8 @@ recent Kimai/database logs before the cleanup trap removes the environment.
 
 ## Current lifecycle test
 
-The harness now proves both normal plugin lifecycle and the Phase 4 command's safe
-construction path:
+The harness now proves normal plugin lifecycle plus safe production-container
+construction of both scheduler-facing commands:
 
 ```text
 construct fresh Kimai + MySQL
@@ -96,6 +96,8 @@ construct fresh Kimai + MySQL
 -> verify bundle class resolves
 -> run kimai:stripe:reconcile --dry-run with connector disabled
 -> require NO_CHANGE without Stripe credentials or Stripe access
+-> run kimai:stripe:cleanup --dry-run with connector disabled
+-> require NO_CHANGE without Stripe credentials or Stripe access
 -> verify Kimai CLI is healthy
 -> remove plugin directory
 -> kimai:reload
@@ -103,11 +105,16 @@ construct fresh Kimai + MySQL
 -> destroy containers and every named volume
 ```
 
-The disabled reconciliation invocation proves that Kimai 2.65 can discover and
-instantiate the command and its real service-container dependencies without
-performing financial mutation.  This validates an important boundary: the
-connector remains a normal removable Kimai plugin rather than a modification to
-Kimai core.
+The disabled command invocations prove that Kimai 2.65 can discover and
+instantiate the reconciliation and cleanup commands plus their real
+service-container dependencies without performing financial or Stripe mutation.
+This validates an important boundary: the connector remains a normal removable
+Kimai plugin rather than a modification to Kimai core.
+
+The lifecycle harness does not authorize an active cleanup operation against a
+real Stripe account.  Stripe mutation behavior is covered separately through the
+locked SDK with a scripted HTTP boundary; a real-sandbox cleanup probe may be
+added only when its setup and teardown can be deterministic and secret-safe.
 
 ## Running locally
 

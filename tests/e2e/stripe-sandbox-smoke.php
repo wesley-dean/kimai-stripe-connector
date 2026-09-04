@@ -125,8 +125,10 @@ try {
     // Exercise the list permission required by discovery without logging unrelated sandbox objects.
     $client->paymentLinks->all(['limit' => 1]);
 
-    // Prove the configured Checkout Session read permission against this new link.
+    // Prove each configured read permission without logging returned sandbox objects.
     $client->checkout->sessions->all(['payment_link' => $linkId, 'limit' => 1]);
+    $client->paymentIntents->all(['limit' => 1]);
+    $client->charges->all(['limit' => 1]);
 
     fwrite(STDOUT, "Stripe sandbox contract probe passed.\n");
 } catch (\Throwable $exception) {

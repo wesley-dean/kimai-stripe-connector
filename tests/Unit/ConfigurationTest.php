@@ -44,6 +44,40 @@ final class ConfigurationTest extends TestCase
         self::assertSame(CredentialSource::DIRECT, $configuration->stripeCredential()?->source());
     }
 
+    public function testProcessEnvironmentUsesSameParserAsExplicitMap(): void
+    {
+        $values = [
+            'KIMAI_STRIPE_CONNECTOR_ENABLED' => 'true',
+            'KIMAI_STRIPE_CONNECTOR_PAYMENT_LINKS_ENABLED' => 'true',
+            'KIMAI_STRIPE_CONNECTOR_INSTANCE_ID' => self::INSTANCE_ID,
+            'KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS' => '14',
+            'KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY' => self::testKey(),
+        ];
+        $original = [];
+
+        foreach ($values as $name => $value) {
+            $original[$name] = getenv($name);
+            self::assertTrue(putenv(sprintf('%s=%s', $name, $value)));
+        }
+
+        try {
+            $loader = new EnvironmentConfigurationLoader();
+            $fromProcess = $loader->loadFromEnvironment();
+            $fromMap = $loader->load($values);
+
+            self::assertSame($fromMap->safeLogContext(), $fromProcess->safeLogContext());
+            self::assertSame(
+                $fromMap->stripeCredential()?->value(),
+                $fromProcess->stripeCredential()?->value(),
+            );
+        } finally {
+            foreach ($original as $name => $value) {
+                $assignment = $value === false ? $name : sprintf('%s=%s', $name, $value);
+                self::assertTrue(putenv($assignment));
+            }
+        }
+    }
+
     public function testEnabledReconciliationAcceptsTrimmedFileCredential(): void
     {
         $loader = new EnvironmentConfigurationLoader(

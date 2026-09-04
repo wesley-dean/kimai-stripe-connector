@@ -27,30 +27,25 @@ Phase 4 -> PR #9 conservative reconciliation + Kimai paid-state persistence
 Phase 5 -> PR #10 conservative orphan cleanup
 Phase 6 -> PR #11 operator runbook
 Install docs -> PR #12 doc/INSTALL.md + README integration
+Phase 7A -> PR #13 self-contained release artifact and release automation
 ```
 
-The current `main` baseline for Phase 7 is the PR #12 merge commit:
+The current `main` baseline is the PR #13 merge commit:
 
 ```text
-3b1534b2d2c825897dc41e1d6c598922881fc3c6
+2498f5e1fac06e5f59d62dc0bfc89764c75b3d4d
 ```
 
-Current work is the ADR-012 release-artifact portion of **Phase 7: Compatibility
-and Release Evidence** on:
+Current work is **Phase 7b: hosted Stripe payment proof** on:
 
 ```text
-build/phase-7-release-artifact
+test/phase-7b-hosted-payment
 ```
 
-with draft PR #13:
-
-```text
-build: prove self-contained release artifact
-```
-
-The separate hosted Stripe Checkout -> reconciliation -> exact Kimai paid-state
-proof remains a later focused Phase 7 increment.  Do not silently fold live or
-hosted-payment activity into the packaging PR.
+The Phase 7b branch implements the executable canonical sandbox flow but has not
+yet completed the one human Stripe-hosted test-card interaction required to turn
+that implementation into real-system evidence.  Until the protected manual
+workflow succeeds, describe Phase 7b as **implemented, real sandbox proof pending**.
 
 All numbered ADRs 000 through 013 are Accepted.  ADR-009 governs reconciliation,
 ADR-010 governs cleanup, ADR-011 governs partial-failure/idempotency behavior,
@@ -113,7 +108,7 @@ Everything else:   None
 ```
 
 Payment Link deactivation uses the already-required Payment Links Write
-permission.  No cleanup permission expansion was required.
+permission.  No Phase 7b permission expansion is required.
 
 The sandbox key is stored in GitHub Actions environment `stripe-sandbox` as secret
 `STRIPE_SANDBOX_RESTRICTED_KEY`.  Never paste it into chat, source, docs, PR
@@ -217,7 +212,8 @@ Both documents preserve fail-closed financial behavior and least privilege.
 
 ## Phase 7A: Self-Contained Release Artifact
 
-Draft PR #13 implements ADR-012 through a deterministic allowlist-based packager.
+PR #13 is merged.  It implements ADR-012 through a deterministic allowlist-based
+packager.
 
 The ordinary build is:
 
@@ -255,36 +251,154 @@ dist/KimaiStripeConnectorBundle-<version>.zip.sha256
 The dedicated Package workflow runs this contract on pull requests and `main`.
 It does not publish a release.
 
-Disposable Kimai E2E now builds the same ZIP, extracts it, installs that exact
-artifact under `var/plugins/KimaiStripeConnectorBundle`, reloads Kimai, verifies
-the bundle, exercises disabled reconciliation/cleanup commands, removes it,
-reloads again, and verifies the bundle is gone.
+Disposable Kimai E2E builds the same ZIP, extracts it, installs that exact artifact
+under `var/plugins/KimaiStripeConnectorBundle`, reloads Kimai, verifies the bundle,
+exercises disabled reconciliation/cleanup commands, removes it, reloads again, and
+verifies the bundle is gone.
 
-The semver workflow now builds the same self-contained artifact and attaches the
-ZIP plus checksum to future GitHub releases.  GitHub-generated **Source code**
-archives remain source-only and are not treated as ADR-012 installable artifacts.
+The semver workflow builds the same self-contained artifact and attaches the ZIP
+plus checksum to future GitHub releases.  GitHub-generated **Source code** archives
+remain source-only and are not treated as ADR-012 installable artifacts.
 
-No release has been published as part of PR #13.
+PR #13 reached clean Package, PHP, Documentation, Kimai E2E, and MegaLinter
+results before merge, including zero MegaLinter errors and zero warnings.  No
+release was published as part of that work.
 
-## Phase 7A Evidence So Far
+## Phase 7b: Hosted Stripe Payment Proof
 
-On implementation head:
+The Phase 7b branch adds:
 
 ```text
-81ce0aead87e08b97a95904d64de10d89c660a97
+tests/e2e/compose.stripe.yaml
+tests/e2e/run-stripe-hosted.sh
+tests/e2e/stripe-hosted-evidence.php
 ```
 
-these checks completed successfully before later documentation-only commits moved
-the branch:
+and extends the existing manual-only:
 
-- Package workflow: success, including reproducibility/content/checksum checks;
-- PHP workflow: success;
-- Documentation workflow: success; and
-- disposable Kimai E2E: success installing/removing the generated ZIP.
+```text
+.github/workflows/stripe-sandbox.yml
+```
 
-MegaLinter on that head was cancelled because the branch advanced; it was not a
-reported lint failure.  Final acceptance requires every relevant workflow,
-including MegaLinter, to be green on one exact final head.
+rather than creating a second secret-bearing workflow.
+
+The hosted workflow still uses GitHub Actions environment `stripe-sandbox`.  The
+Stripe secret is injected only into the contract-probe and hosted-payment steps;
+checkout, PHP setup, and dependency installation remain credential-free.
+
+### Disposable fixture and instance identity
+
+Every hosted run creates fresh Compose volumes and generates a new
+`KIMAI_STRIPE_CONNECTOR_INSTANCE_ID` from the runner's kernel UUID source.  This is
+intentional: each test is a new disposable Kimai deployment, so a fresh instance
+namespace is correct and prevents prior deactivated sandbox links from becoming
+ambiguous same-invoice evidence.
+
+The fixture creates one exact `$12.34` USD billable invoice.  Customer, project,
+activity, and timesheet data are created through Kimai's API.  A run-owned bearer
+API token and invoice-template row are narrow test setup seams.  The invoice itself
+is created through:
+
+```text
+kimai:invoice:create
+```
+
+so Kimai's real invoice creation path dispatches the production
+`InvoicePreRenderEvent` and lets the connector create/recover the Payment Link.
+
+### Stripe evidence helper
+
+`stripe-hosted-evidence.php` uses the packaged plugin's locked Stripe SDK and
+shared connector metadata/money primitives.  It refuses live-mode credentials and
+checks the same successful-payment predicates used by production reconciliation:
+
+- exact Payment Link metadata, amount, currency, line item, and restrictions;
+- exact Checkout Session metadata, amount, currency, and Payment Link relation;
+- Session `complete` + `paid`;
+- exact PaymentIntent metadata, amount, amount received, currency, and
+  `succeeded` state;
+- exact latest Charge relation;
+- Charge `paid=true` and `captured=true`;
+- exact amount/captured amount/currency;
+- zero refunded amount;
+- `refunded=false`;
+- `disputed=false`; and
+- a usable Charge creation timestamp.
+
+It fails if more than one successful payment matches the disposable invoice.
+
+### Human interaction boundary
+
+The workflow prints the run-owned Stripe-hosted Payment Link and Stripe's public
+success-card test data, then waits up to 15 minutes by default for the human to
+complete Checkout.
+
+Browser automation is deliberately not added merely to enter public test-card
+data.  The human action makes the proof boundary explicit: the test does not
+manufacture the payment state it is meant to verify.
+
+### Reconciliation assertions
+
+After the real Stripe object chain appears, the harness requires:
+
+```text
+Kimai invoice still unpaid
+-> kimai:stripe:reconcile --dry-run
+   [SUCCESS] would_change=yes changed=no
+-> kimai:stripe:reconcile
+   [SUCCESS] would_change=yes changed=yes
+-> exact invoice status=paid and paymentDate populated
+-> kimai:stripe:reconcile again
+   [NO_CHANGE] would_change=no changed=no
+```
+
+This proves the real paid-state transition only after Stripe has supplied the
+strong evidence required by ADR-009, then proves the immediate rerun is idempotent
+under ADR-011.
+
+### Run-owned Stripe cleanup
+
+Before Docker teardown, the EXIT/INT/TERM path asks the evidence helper to
+deactivate active connector-managed Payment Links for the current run's unique
+Kimai instance UUID.  It performs no broad or global sandbox cleanup and cannot
+target another run's instance namespace.
+
+A cleanup failure makes the hosted test fail rather than silently leaving an
+active run-owned Payment Link behind.
+
+## Current Phase 7b Evidence State
+
+Implementation work exists on:
+
+```text
+test/phase-7b-hosted-payment
+```
+
+The PHP evidence helper and shell harness were syntax-checked during development.
+The environment available to that session did not provide Docker, so the complete
+containerized hosted path could not be executed locally.
+
+Ordinary PR CI still needs to prove this branch against the repository's normal
+Package/PHP/Documentation/Kimai E2E/MegaLinter gates.  Separately, one successful
+manual protected `Stripe Sandbox` workflow run is required before saying the
+hosted payment path is proven.
+
+The manual run must demonstrate:
+
+```text
+real disposable Kimai invoice
+-> connector-created Payment Link
+-> human Stripe-hosted sandbox card Checkout
+-> real Session / PaymentIntent / Charge evidence
+-> Kimai still unpaid before reconciliation
+-> reconciliation dry-run predicts paid transition
+-> real reconciliation changes exact invoice to paid
+-> paymentDate exists
+-> immediate idempotent NO_CHANGE rerun
+-> run-owned Payment Link deactivation
+```
+
+Do not substitute lower-layer green tests for that evidence.
 
 ## Manual Billing Fallback
 
@@ -303,35 +417,19 @@ track time in Kimai
 Do not infer payment merely from link/session existence.  Preserve actual Stripe
 payment evidence and resolve refunds/disputes as accounting events.
 
-## Remaining Real Stripe E2E Gap
-
-The canonical full payment proof remains Phase 7 work:
-
-```text
-real disposable Kimai invoice
--> connector-created Payment Link
--> Stripe-hosted sandbox card Checkout
--> real Session / PaymentIntent / Charge evidence
--> reconciliation command
--> exact Kimai paid-state transition
--> idempotent rerun
-```
-
-Do not use live credentials or real money to close this gap.  The existing
-restricted sandbox key and test mode are the only acceptable Stripe boundary for
-this proof unless the owner explicitly authorizes something else.
-
 ## Remaining Phase 7 Work
 
-After the release-artifact PR is accepted/merged, important remaining evidence is:
+Before a supported release claim:
 
-- full hosted sandbox payment -> reconciliation -> exact Kimai paid transition;
-- idempotent reconciliation rerun after that real payment;
-- compatibility evidence beyond the Kimai 2.65.0 baseline only if deliberately
-  claimed;
-- final secret/log review;
-- full clean quality/security gates; and
-- resolving the public software-license boundary before any public release or
+- finish Phase 7b ordinary PR CI;
+- run the protected real Stripe hosted-payment workflow successfully on the exact
+  candidate head;
+- update this handoff/test matrix with that exact run evidence;
+- perform final secret/log review;
+- keep compatibility claims at Kimai 2.65.0 unless deliberately expanded with
+  executable evidence;
+- require all quality/security gates to be clean; and
+- resolve the public software-license boundary before any public release or
   public repository transition.
 
 Do not publish a release without explicit owner authorization.
@@ -340,18 +438,21 @@ Do not publish a release without explicit owner authorization.
 
 A new engineering session should:
 
-1. inspect draft PR #13, its current head, CI, comments, reviews, and review
-   threads;
+1. inspect `test/phase-7b-hosted-payment`, its PR if opened, exact head, CI,
+   comments, reviews, and review threads;
 2. read this handoff, implementation playbook, installation guide, operator
    runbook, decision index, ADR-009 through ADR-013, and test matrix;
-3. treat merge commit `3b1534b2d2c825897dc41e1d6c598922881fc3c6`
-   as the Phase 7 baseline until PR #13 is merged;
-4. preserve the verified Stripe permission set and stable Kimai instance UUID;
-5. preserve shared exact money and version-1 metadata semantics;
-6. preserve ADR-012's self-contained plugin-local production dependency model;
-7. keep GitHub source archives distinct from installable self-contained ZIPs;
-8. require final exact-head Package/PHP/Documentation/Kimai E2E/MegaLinter
-   evidence before declaring PR #13 complete;
-9. treat full hosted paid E2E as unproven until actually executed; and
-10. never merge, release, make the repository public, use live Stripe credentials,
+3. treat merge commit `2498f5e1fac06e5f59d62dc0bfc89764c75b3d4d`
+   as the Phase 7A/main baseline;
+4. preserve the verified Stripe permission set;
+5. preserve stable production instance identity while allowing a fresh UUID for
+   each genuinely disposable Kimai E2E deployment;
+6. preserve shared exact money and version-1 metadata semantics;
+7. preserve ADR-012's self-contained plugin-local production dependency model;
+8. keep GitHub source archives distinct from installable self-contained ZIPs;
+9. require exact-head Package/PHP/Documentation/Kimai E2E/MegaLinter evidence for
+   the PR;
+10. require a successful manual protected Stripe Sandbox hosted-payment run before
+    declaring Phase 7b proven; and
+11. never merge, release, make the repository public, use live Stripe credentials,
     or perform live financial mutation without explicit owner authorization.

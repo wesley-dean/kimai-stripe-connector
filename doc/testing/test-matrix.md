@@ -97,7 +97,7 @@ The real Stripe layer is evidence for contracts mocks cannot prove.  It is not t
 | Stripe read evidence         | `StripeReconciliationHttpBoundaryTest` | Locked SDK Payment Link discovery retains Stripe `created` and `active` evidence while preserving Phase 4 read-only Session/PaymentIntent/Charge traversal                                                                                                       |
 | Stripe mutation boundary     | `StripeCleanupHttpBoundaryTest`        | Locked SDK target retrieve before update, exact metadata check, idempotent already-inactive result, `active=false` request encoding, update confirmation, retryable uncertain update outcome                                                                     |
 | External cleanup command     | `CleanupCommandTest`                   | Disabled no-op, missing credential, `--dry-run`, eligible deactivation, conflict, paid orphan/manual review, retryable discovery, retryable deactivation, generic internal-error output, shared ADR-013 exit-code mapping                                        |
-| DI / production packaging    | disposable Kimai E2E                   | Packaged Kimai 2.65 plugin installs and constructs both reconciliation and cleanup commands; disabled `--dry-run` invocations prove registration/autowiring without Stripe credential or mutation                                                              |
+| DI / production packaging    | disposable Kimai E2E                   | Packaged Kimai 2.65 plugin installs and constructs both reconciliation and cleanup commands; disabled `--dry-run` invocations prove registration/autowiring without Stripe credential or mutation                                                                |
 | Real Stripe cleanup behavior | existing sandbox contract probe        | Real sandbox has proven connector-created Payment Link deactivation with the existing restricted-key permission; the Phase 5 eligibility/revalidation algorithm itself remains deterministic lower-layer evidence rather than an active real-account cleanup run |
 
 The Phase 5 destructive decision is deliberately stricter than an ordinary reconciliation `NO_CHANGE`.  Lack of successful payment proof is insufficient: automatic cleanup requires positively supported terminal/unpaid evidence.  Open, processing, unknown, contradictory, partially financial, or otherwise ambiguous Stripe state is retained.
@@ -106,15 +106,15 @@ The PHPUnit suite explicitly includes both `tests/Unit` and `tests/Integration`.
 
 ## Phase 7 Release-Artifact Coverage
 
-| Area                        | Repository evidence                       | Current evidence                                                                                                         |
-|-----------------------------|-------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| Area                        | Repository evidence                        | Current evidence                                                                                                         |
+|-----------------------------|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
 | Runtime package allowlist   | `tools/package.sh`, `tests/package/run.sh` | Only runtime source, required plugin/project metadata, installation guide, and generated production `vendor/` are packed |
-| Production dependencies     | package test                              | `composer install --no-dev` from committed lockfile; packaged Stripe SDK autoloads                                      |
-| Development exclusion       | package test                              | Tests, CI/tooling files, and known require-dev vendor trees are rejected                                                 |
-| Reproducibility             | package test                              | Same version/source/dependency graph builds byte-for-byte identical ZIP files                                            |
-| Integrity metadata          | package test / Package workflow           | SHA-256 file is generated and verified                                                                                   |
-| Real Kimai installability   | disposable Kimai E2E                      | The generated ZIP itself is extracted, installed, reloaded, exercised disabled, removed, and verified gone              |
-| Release attachment contract | `.github/workflows/semver.yml`            | Future GitHub releases attach the self-contained ZIP and checksum rather than relying on source archives                 |
+| Production dependencies     | package test                               | `composer install --no-dev` from committed lockfile; packaged Stripe SDK autoloads                                       |
+| Development exclusion       | package test                               | Tests, CI/tooling files, and known require-dev vendor trees are rejected                                                 |
+| Reproducibility             | package test                               | Same version/source/dependency graph builds byte-for-byte identical ZIP files                                            |
+| Integrity metadata          | package test / Package workflow            | SHA-256 file is generated and verified                                                                                   |
+| Real Kimai installability   | disposable Kimai E2E                       | The generated ZIP itself is extracted, installed, reloaded, exercised disabled, removed, and verified gone               |
+| Release attachment contract | `.github/workflows/semver.yml`             | Future GitHub releases attach the self-contained ZIP and checksum rather than relying on source archives                 |
 
 The Package workflow executes `make package-check` on pull requests and `main`.
 It does not publish a release.  Publishing remains governed by repository release
@@ -228,8 +228,8 @@ These scenarios shall not be implemented solely as real Stripe E2E tests because
 
 ## Kimai Integration Status
 
-| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                                                                               |
-|--------------|----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| IDs          | Primary layer                    | Status / notes                                                                                                                                                                                                                                                                                                         |
+|--------------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | KIM-001..012 | Disposable Kimai integration/E2E | Packaged plugin lifecycle and real service-container compatibility exist; event/render boundary has Phase 3 coverage; paid persistence is modeled against verified Kimai 2.65 APIs; both scheduler commands construct in real Kimai; canonical full paid E2E remains required before that stronger release-level claim |
 
 The disposable Kimai lifecycle harness remains the canonical ephemeral host fixture.

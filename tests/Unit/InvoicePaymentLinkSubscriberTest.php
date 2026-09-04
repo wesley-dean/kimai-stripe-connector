@@ -7,21 +7,20 @@ namespace KimaiStripeConnectorTests\Unit;
 use App\Event\InvoicePreRenderEvent;
 use App\Invoice\InvoiceModel;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Configuration\EnvironmentConfigurationLoader;
-use KimaiPlugin\KimaiStripeConnectorBundle\Common\Configuration\StripeCredential;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Identity\KimaiInstanceId;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Metadata\InvoiceMetadata;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Money\Money;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\InvoicePaymentLinkSubscriber;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\KimaiInvoiceMetadataFactory;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkCandidate;
-use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkCreateRequest;
-use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkGateway;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkGatewayException;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkGenerationException;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkInvoiceModelHydrator;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkService;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkServiceFactory;
 use KimaiStripeConnectorTests\Support\FixedCalculator;
+use KimaiStripeConnectorTests\Support\StubPaymentLinkServiceFactory;
+use KimaiStripeConnectorTests\Support\SubscriberGateway;
 use PHPUnit\Framework\TestCase;
 
 final class InvoicePaymentLinkSubscriberTest extends TestCase
@@ -145,45 +144,5 @@ final class InvoicePaymentLinkSubscriberTest extends TestCase
             'INV-0042',
             Money::fromDecimal('875.10', 'USD'),
         );
-    }
-}
-
-final class StubPaymentLinkServiceFactory implements PaymentLinkServiceFactory
-{
-    public int $createCalls = 0;
-
-    public function __construct(private readonly PaymentLinkService $service)
-    {
-    }
-
-    public function create(StripeCredential $credential): PaymentLinkService
-    {
-        ++$this->createCalls;
-
-        return $this->service;
-    }
-}
-
-final class SubscriberGateway implements PaymentLinkGateway
-{
-    /**
-     * @param list<PaymentLinkCandidate>|PaymentLinkGatewayException $listResult
-     */
-    public function __construct(private array|PaymentLinkGatewayException $listResult)
-    {
-    }
-
-    public function listAll(): array
-    {
-        if ($this->listResult instanceof PaymentLinkGatewayException) {
-            throw $this->listResult;
-        }
-
-        return $this->listResult;
-    }
-
-    public function create(PaymentLinkCreateRequest $request): PaymentLinkCandidate
-    {
-        throw new PaymentLinkGatewayException('Subscriber test does not create Payment Links.');
     }
 }

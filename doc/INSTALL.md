@@ -108,28 +108,43 @@ logs or process listings.
 
 ## Choose an Installation Source
 
-There are two valid installation paths.
+There are two supported installation paths.
 
-### Preferred: verified self-contained release artifact
+### Preferred: self-contained release artifact
 
-A release artifact intended for installation must contain the plugin runtime files
-and its production-only local `vendor/` tree.
+The installable release artifact is named:
 
-Do not assume GitHub's automatically generated "Source code" ZIP or tarball is an
-installable plugin package.  Source archives do not normally contain generated
-Composer dependencies.
+```text
+KimaiStripeConnectorBundle-<version>.zip
+```
 
-Phase 7 will verify the repository's release automation against the self-contained
-artifact contract in ADR-012.  Until that verification is complete, use the
-source-build procedure below unless you have independently verified that a given
-release archive contains the required production dependency shape.
+and is accompanied by:
 
-When using a verified release artifact:
+```text
+KimaiStripeConnectorBundle-<version>.zip.sha256
+```
 
-1. Extract the artifact outside the live Kimai plugin directory.
-2. Confirm the extracted plugin root contains `composer.json`, `composer.lock`,
-   the bundle source, and `vendor/autoload.php`.
-3. Place or rename that root directory as:
+The ZIP contains the plugin runtime files and its production-only local `vendor/`
+tree.  GitHub's automatically generated **Source code** ZIP and tarball are source
+archives, not ADR-012 installable plugin packages, because they do not include the
+generated production dependency tree.
+
+Before installation, verify the downloaded artifact against its checksum from the
+same release:
+
+```bash
+sha256sum --check KimaiStripeConnectorBundle-<version>.zip.sha256
+```
+
+A successful verification reports the ZIP as `OK`.
+
+Then:
+
+1. Extract the ZIP outside the live Kimai plugin directory.
+2. Confirm the extracted `KimaiStripeConnectorBundle/` root contains
+   `composer.json`, `composer.lock`, `KimaiStripeConnectorBundle.php`, and
+   `vendor/autoload.php`.
+3. Place that complete directory at:
 
    ```text
    <kimai-root>/var/plugins/KimaiStripeConnectorBundle/
@@ -137,62 +152,55 @@ When using a verified release artifact:
 
 4. Continue with [Configure the connector](#configure-the-connector).
 
-### Current supported path: build a production-shaped plugin from source
+Do not run Composer in Kimai's root application to install dependencies from this
+artifact.  The ZIP already contains its production dependency graph.
 
-Build from a reviewed tag or commit, not from an arbitrary moving branch.
+### Build a self-contained artifact from reviewed source
 
-The following reproduces the production staging model exercised by the disposable
-Kimai E2E harness:
+When installing from a reviewed tag or commit instead of a release attachment,
+build the same artifact shape locally.  Requirements are Composer 2, `zip`, and
+the supported PHP/extensions.
 
 ```bash
 git clone https://github.com/wesley-dean/kimai-stripe-connector.git
 cd kimai-stripe-connector
 git checkout <tag-or-reviewed-commit>
-
-stage="$(mktemp -d)"
-
-tar \
-  --exclude='./.git' \
-  --exclude='./vendor' \
-  --exclude='./tests' \
-  --exclude='./build' \
-  --exclude='./coverage' \
-  --exclude='./dist' \
-  --exclude='./doc/reference' \
-  -cf - . | tar -C "${stage}" -xf -
-
-composer install \
-  --working-dir="${stage}" \
-  --no-dev \
-  --no-interaction \
-  --prefer-dist \
-  --optimize-autoloader
+make package VERSION=<version-or-local-label>
 ```
 
-Verify the staged tree contains:
+The build creates:
 
 ```text
-vendor/autoload.php
+dist/KimaiStripeConnectorBundle-<version-or-local-label>.zip
+dist/KimaiStripeConnectorBundle-<version-or-local-label>.zip.sha256
 ```
 
-and does not contain:
+The packaging target constructs an allowlisted runtime tree and runs
+`composer install --no-dev --prefer-dist --optimize-autoloader` against the
+committed lockfile inside that tree.  It does not copy the repository development
+`vendor/` directory.
+
+Verify the checksum before installing:
+
+```bash
+cd dist
+sha256sum --check KimaiStripeConnectorBundle-<version-or-local-label>.zip.sha256
+```
+
+Developers can additionally run:
 
 ```text
-tests/
+make package-check
 ```
 
-Then copy the contents of the staging directory into a directory named exactly:
+That check builds the same version twice, requires byte-for-byte identical ZIPs,
+validates the checksum and package contents, rejects development-only paths, and
+verifies the packaged Stripe SDK can be autoloaded.
 
-```text
-<kimai-root>/var/plugins/KimaiStripeConnectorBundle/
-```
-
-Do not copy a repository development `vendor/` directory into Kimai.  A developer
-checkout may contain PHPUnit, PHPStan, Symfony development packages, and other
-`require-dev` dependencies that are intentionally absent from the production
+Do not copy a repository development checkout directly into Kimai.  A development
+checkout may contain PHPUnit, PHPStan, Symfony development packages, tests, CI
+configuration, and other material intentionally absent from the production
 plugin.
-
-Do not run Composer against Kimai's root project to install the connector.
 
 ## Configure the Connector
 
@@ -319,7 +327,7 @@ operator handling.
 
 For a new deployment, prefer a staged rollout:
 
-1. Install the production-shaped plugin while connector capabilities are disabled.
+1. Install the self-contained plugin while connector capabilities are disabled.
 2. Run `kimai:reload` and confirm the commands resolve.
 3. Configure the stable instance UUID and restricted Stripe credential.
 4. Enable only the capabilities you intend to use.
@@ -369,9 +377,9 @@ Recommended sequence:
 1. Stop or pause scheduled reconciliation and cleanup.
 2. Preserve the current deployment configuration, mounted Stripe secret, and
    stable `KIMAI_STRIPE_CONNECTOR_INSTANCE_ID`.
-3. Build or obtain the new production-shaped plugin in a separate directory.
-4. Verify the new tree contains its own `vendor/autoload.php` and production
-   dependencies.
+3. Obtain or build the new self-contained ZIP and verify its SHA-256 checksum.
+4. Extract the ZIP in a separate location and confirm `vendor/autoload.php`
+   exists.
 5. Replace the entire `KimaiStripeConnectorBundle` directory rather than overlaying
    files onto an older plugin tree.
 6. Run:

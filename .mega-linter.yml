@@ -30,8 +30,8 @@ VALIDATE_ALL_CODEBASE: false
 # don't print the alpaca -- it's cute, but we don't need it in the logs
 PRINT_ALPACA: false
 
-# don't fail on finding errors; we want to see the results, not stop the build
-DISABLE_ERRORS: true
+# fail the workflow when MegaLinter finds errors
+DISABLE_ERRORS: false
 
 # use prettier for JavaScript code formatting
 JAVASCRIPT_DEFAULT_STYLE: prettier

@@ -16,7 +16,6 @@ use KimaiPlugin\KimaiStripeConnectorBundle\Common\Money\Money;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Stripe\StripeClientFactory;
 use KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink\PaymentLinkCreateRequest;
 use Stripe\Exception\ApiErrorException;
-use Throwable;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -29,6 +28,9 @@ const PROBE_CURRENCY = 'usd';
  */
 function assertExactArray(array $actual, array $expected, string $label): void
 {
+    ksort($actual);
+    ksort($expected);
+
     if ($actual !== $expected) {
         throw new RuntimeException($label . ' did not match the expected connector contract.');
     }
@@ -127,7 +129,7 @@ try {
     $client->checkout->sessions->all(['payment_link' => $linkId, 'limit' => 1]);
 
     fwrite(STDOUT, "Stripe sandbox contract probe passed.\n");
-} catch (Throwable $exception) {
+} catch (\Throwable $exception) {
     $details = $redactor->redact($exception->getMessage(), [$secret]);
 
     if ($exception instanceof ApiErrorException) {
@@ -147,7 +149,7 @@ try {
             if (($deactivated['active'] ?? null) !== false) {
                 throw new RuntimeException('Stripe did not confirm Payment Link deactivation.');
             }
-        } catch (Throwable $cleanupException) {
+        } catch (\Throwable $cleanupException) {
             $cleanupMessage = $redactor->redact($cleanupException->getMessage(), [$secret]);
             $cleanupFailure = new RuntimeException('Stripe sandbox cleanup failed: ' . $cleanupMessage);
             $failure ??= $cleanupFailure;

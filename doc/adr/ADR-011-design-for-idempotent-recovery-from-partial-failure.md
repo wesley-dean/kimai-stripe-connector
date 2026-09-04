@@ -51,12 +51,18 @@ Authoritative connector state SHALL NOT depend on ephemeral container-local file
 
 Concurrency behavior SHALL be tested.  Concurrent attempts to create the same logical payment surface must converge safely or fail conservatively without creating uncontrolled duplicates.
 
+The initial reconciliation command SHALL NOT claim distributed locking or serialized execution.  Before a Kimai paid-state mutation it SHALL re-read the invoice and refuse financial drift; an already-paid invoice SHALL remain an idempotent no-op.  Operators SHOULD configure cron, Jenkins, systemd, or another scheduler to avoid overlapping reconciliation processes.  If external serialization is required, it SHOULD be provided by the scheduler/runtime, for example with an appropriate single-run job policy or host-level locking mechanism.
+
+Two overlapping reconciliation processes may both observe the same unpaid invoice before either commits.  Because reconciliation is Stripe-read-only and the only automatic Kimai transition is monotonic unpaid-to-paid with the same proven payment date, those writes converge on the same financial state.  Duplicate Kimai update-event execution remains possible, so overlapping runs are an operational condition to avoid rather than a behavior the connector promises to serialize internally.
+
 ## Consequences
 
 - Stripe may contain recoverable orphan objects after Kimai failures.
 - The connector needs exact correlation and conflict diagnostics.
 - Some ambiguous states require manual review instead of automatic repair.
 - Retry and timeout paths are first-class test cases, not rare edge cases.
+- Reconciliation remains financially idempotent without introducing connector-owned distributed-lock state.
+- Operators must avoid overlapping reconciliation jobs when duplicate Kimai update-event execution would be undesirable.
 
 ## Considered Alternatives
 
@@ -76,10 +82,15 @@ Rejected because the remote operation may have committed before the response was
 
 Rejected because Stripe metadata and Kimai state provide a simpler recovery mechanism.  A separate ledger requires new evidence and a later ADR.
 
+### Add connector-owned distributed locking for reconciliation immediately
+
+Rejected for the initial release because reconciliation performs no Stripe mutation, the Kimai transition is monotonic/idempotent, and introducing shared lock state would add deployment coupling without improving the underlying payment evidence.  Scheduler-level non-overlap plus last-moment Kimai revalidation is the smaller initial contract.
+
 ## Related Decisions
 
 - Related to: ADR-006
 - Related to: ADR-007
 - Related to: ADR-008
+- Related to: ADR-009
 - Related to: ADR-010
 - Related to: ADR-003

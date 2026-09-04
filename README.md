@@ -40,7 +40,7 @@ The repository now contains:
 - an operator runbook covering routine operation, incidents, disablement, and manual fallback; and
 - detailed design/testing/threat/configuration/handoff documentation.
 
-Phase 6 is documentation-only operationalization of the already merged behavior.  It does not broaden the connector's financial or Stripe mutation authority.
+Phase 6 adds operator guidance for the already merged behavior.  It does not broaden the connector's financial or Stripe mutation authority.
 
 ## Start Here
 

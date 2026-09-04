@@ -74,6 +74,7 @@
     "mbstring",
     "metacharacters",
     "miscorrelation",
+    "mktemp",
     "mysqladmin",
     "ossf",
     "phpDocumentor",

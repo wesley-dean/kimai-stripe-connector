@@ -16,6 +16,7 @@ DISABLE_LINTERS:
     REPOSITORY_DEVSKIM,
     REPOSITORY_DUSTILOCK,
     REPOSITORY_OSV_SCANNER,
+    REPOSITORY_GRYPE,
     SPELL_PROSELINT,
     COPYPASTE_JSCPD,
     BASH_EXEC,
@@ -35,9 +36,9 @@ PRINT_ALPACA: false
 # Fail the workflow when MegaLinter finds errors.
 DISABLE_ERRORS: false
 
-# Avoid API reporter chatter on private-repository pull requests.  GitHub Actions
-# itself remains the source of workflow status and report artifacts.
-GITHUB_COMMENT_REPORTER: false
+# Post the MegaLinter overview back to the related pull request.  The workflow
+# grants only the GitHub write scopes needed for PR/issue commenting.
+GITHUB_COMMENT_REPORTER: true
 
 # Project-owned PHP linter configuration.
 PHP_PHPCS_CONFIG_FILE: phpcs.xml

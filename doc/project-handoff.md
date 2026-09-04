@@ -6,189 +6,71 @@ Date: 2026-09-04
 
 This document gives a new human or AI/LLM engineering session enough current context to resume `kimai-stripe-connector` without the conversation that produced the project.
 
-For autonomous work, begin here, then read [`implementation-playbook.md`](implementation-playbook.md) and [`decisions.md`](decisions.md).  Accepted ADRs and explicit contracts remain authoritative over this handoff.
+For implementation work, read this document, [`implementation-playbook.md`](implementation-playbook.md), and [`decisions.md`](decisions.md).  Accepted ADRs and explicit source contracts remain authoritative over this handoff.
 
 Do not merge, release, use live Stripe credentials, or perform live financial mutation without explicit owner authorization.
 
 ## Current State
 
-Phase 1 foundation work was merged through PR #5.  Phase 2 common primitives were reviewed, approved, and merged through PR #6.
-
-Current implementation work is Phase 3 Payment Links on:
+Completed and merged:
 
 ```text
-feat/phase-3-payment-links
+Phase 1 -> PR #5 foundation / production-shaped Kimai packaging
+Phase 2 -> PR #6 configuration, identity, money, metadata, result primitives
+Phase 3 -> PR #8 Payment Link capability + real Stripe sandbox contract probe
 ```
 
-with draft PR #8:
+Current work is **Phase 4: Reconciliation** on:
 
 ```text
-feat: implement phase 3 payment link capability
+feat/phase-4-reconciliation
 ```
 
-Inspect current repository and PR state before resuming.  Do not assume the branch, SHA, CI state, or draft state remains unchanged.
+with draft PR #9:
 
-All numbered ADRs 000 through 013 remain Accepted.  Phase 3 implements those decisions without reversing an Accepted architectural boundary.
+```text
+feat: implement phase 4 reconciliation
+```
 
-## What Phase 3 Implements
+Inspect current PR/head/CI state before resuming.  PR #9 remains draft until implementation, documentation, and final-head validation are complete.  Never merge it without explicit owner approval.
 
-Phase 3 now contains the first production Stripe Payment Link capability.
+All numbered ADRs 000 through 013 are Accepted.  ADR-009 now also defines automatic payment-date semantics, and ADR-013 defines reconciliation CLI exit codes.
 
-The implementation includes:
+## Architecture Boundaries
 
-- deterministic Payment Link discovery, planning, reuse, creation, and recovery;
-- fail-closed handling for financial conflicts, ambiguity, malformed same-invoice metadata, and inactive exact links;
-- deterministic Stripe idempotency keys;
-- card-only Payment Link creation;
+Unless a later Accepted ADR changes them:
+
+- one Kimai plugin contains Payment Link and reconciliation capabilities with shared common primitives;
+- Kimai is authoritative for invoice/business state;
+- Stripe is authoritative for payment movement and Stripe objects;
+- there is no connector-owned payment ledger/database;
+- Kimai core and root Composer state are not patched;
+- no public Kimai ingress or Stripe webhook is required;
+- Stripe Payment Links remain the customer payment surface;
+- Payment Link generation and reconciliation can be enabled independently;
+- manual Payment Link creation and manual reconciliation remain permanent fallbacks;
+- ambiguity causes no automatic financial mutation;
+- false negatives are preferred to false-positive paid-state transitions;
+- paid orphans are retained for accounting review;
+- refunds/disputes never automatically reverse historical Kimai paid state; and
+- cleanup retains uncertainty.
+
+## Phase 3 Baseline
+
+Phase 3 provides:
+
+- deterministic Payment Link planning/reuse/create/recovery;
+- card-only fixed-amount Payment Links;
 - one-completed-session restriction;
-- inline one-time `price_data` / `product_data` request construction;
-- version-1 correlation metadata on Payment Links and generated PaymentIntents;
-- the locked Stripe PHP SDK adapter;
-- timeout-after-possible-commit rediscovery without blind duplicate creation;
+- version-1 metadata on Payment Links and generated PaymentIntents;
+- deterministic idempotency keys;
+- no blind second create after an uncertain commit;
 - Kimai `InvoicePreRenderEvent` integration;
 - preview suppression before configuration or Stripe access;
-- exact Kimai invoice metadata/money conversion at the integration boundary;
-- safe invoice-model hydration exposing only the Stripe-hosted payment URL;
-- operator-safe failure that stops invoice rendering when enabled automation cannot complete safely;
-- controlled HTTP-boundary tests through the real locked Stripe SDK with a scripted fake network; and
-- a manual real-Stripe sandbox contract probe.
+- safe invoice hydration exposing only the hosted URL; and
+- real Stripe sandbox verification of the intended request/permission contract.
 
-No automatic Kimai paid-state reconciliation exists yet.  No cleanup scheduler/command exists yet beyond sandbox probe cleanup.  No live Stripe mutation is authorized.
-
-## Payment Link Architecture
-
-The main production package is:
-
-```text
-PaymentLink/
-```
-
-Important classes include:
-
-```text
-PaymentLinkPlanner
-PaymentLinkService
-PaymentLinkCreateRequest
-StripePaymentLinkGateway
-StripePaymentLinkServiceFactory
-InvoicePaymentLinkSubscriber
-KimaiInvoiceMetadataFactory
-PaymentLinkInvoiceModelHydrator
-```
-
-The planner is intentionally pure.  It decides among preview, reuse, create, conflict, and manual-review outcomes before remote mutation.
-
-The service rediscoveries before creation.  If a create request may have committed but the response is uncertain, it performs one rediscovery pass and does not issue another create in the same attempt.  This is the executable ADR-011 partial-failure rule.
-
-## Kimai Integration Boundary
-
-Phase 3 uses Kimai's supported `InvoicePreRenderEvent` seam under ADR-006.
-
-Preview behavior returns immediately before configuration parsing, invoice-number preparation, or Stripe access.  Preview therefore causes zero Stripe reads or writes.
-
-For a real invoice:
-
-1. configuration is validated;
-2. disabled Payment Link automation returns without changing the invoice;
-3. the Kimai invoice number, total, and currency are converted into the connector metadata contract;
-4. the Payment Link service proves or creates one exact compatible link; and
-5. only the safe Stripe-hosted URL is exposed to the invoice model/template.
-
-If enabled automatic generation cannot complete safely, invoice rendering stops with an operator-safe `PaymentLinkGenerationException`.  The explicit manual fallback is to disable Payment Link automation and handle billing manually.
-
-## Kimai Float Boundary
-
-Kimai 2.65 exposes invoice calculator totals as `float`.
-
-The connector does not round those values.  `KimaiInvoiceMetadataFactory` serializes the float to PHP's shortest JSON decimal representation and passes that text into the exact `Money` parser.  Ordinary values such as `875.1` can therefore become exact cents, while a value carrying binary-artifact precision beyond the supported two-decimal policy fails closed rather than being rounded silently.
-
-## Payment Link Request Contract
-
-A connector-created link represents one fixed invoice payment:
-
-```text
-quantity:                 1
-payment method:           card only
-completed-session limit:  1
-price:                    inline one-time price_data
-product:                  inline product_data
-amount:                   exact integer minor units
-currency:                 normalized lowercase currency
-```
-
-Version-1 metadata remains:
-
-```text
-integration=kimai-stripe-connector
-integration_version=1
-kimai_instance=<stable UUID>
-invoice_number=<Kimai invoice number>
-invoice_amount=<integer minor units>
-invoice_currency=<lowercase currency>
-```
-
-The same six-field contract is written to Payment Link metadata and to `payment_intent_data.metadata`.  Stripe copies Payment Link metadata to Checkout Sessions created through the link.
-
-## Deterministic Recovery and Safety Rules
-
-The following behavior is implemented and tested:
-
-```text
-preview -> no Stripe access
-exact compatible active link -> reuse
-no compatible link -> create once
-same logical invoice + wrong amount/currency -> CONFLICT
-multiple exact candidates -> fail closed
-malformed same-invoice connector metadata -> fail closed
-inactive exact link -> manual review / no replacement create
-definite create failure -> RETRYABLE
-possibly committed create -> rediscover once
-possibly committed create + exact rediscovery -> reuse recovered link
-possibly committed create + no proof -> RETRYABLE, no second create
-```
-
-False positives are treated as more dangerous than false negatives.  Ambiguity never authorizes financial mutation.
-
-## Real Stripe Sandbox Evidence
-
-Phase 3 crossed the real Stripe boundary on 2026-09-04 using a restricted test-mode credential stored in GitHub Actions environment secret storage.
-
-The durable workflow is:
-
-```text
-.github/workflows/stripe-sandbox.yml
-```
-
-The probe is:
-
-```text
-tests/e2e/stripe-sandbox-smoke.php
-```
-
-The successful real sandbox probe verified:
-
-- the exact locked Stripe PHP SDK can create the intended Payment Link request;
-- the inline Product/Price representation works without separate Product or Price permissions;
-- exact `$12.34` USD representation as `1234` minor units;
-- exactly one line item with quantity one;
-- card-only restriction;
-- one-completed-session limit;
-- exact six-field version-1 metadata after Stripe round-trip;
-- Payment Link retrieval and listing;
-- Checkout Session read permission;
-- PaymentIntent read permission;
-- Charge read permission; and
-- safe Payment Link deactivation after the probe.
-
-The first sandbox attempt successfully created and later deactivated a Payment Link but failed a local assertion because PHP array comparison was order-sensitive while Stripe returned metadata keys in its own order.  The test was corrected to canonical key/value comparison.  A subsequent run passed.  This was a test defect, not a Stripe permission failure.
-
-Do not treat the real sandbox probe as proof of hosted card payment or reconciliation.  Those require Phase 4 reconciliation plus the canonical full E2E flow.
-
-## Verified Stripe Restricted-Key Permissions
-
-The verified sandbox permission set is documented in [`stripe-restricted-key.md`](stripe-restricted-key.md).
-
-Current least-privilege set:
+The verified restricted sandbox-key permissions remain:
 
 | Stripe resource   | Permission |
 |-------------------|------------|
@@ -200,162 +82,271 @@ Current least-privilege set:
 | Prices            | None       |
 | Everything else   | None       |
 
-The sandbox key lives in GitHub Actions environment:
+The key is stored in GitHub Actions environment `stripe-sandbox` as secret `STRIPE_SANDBOX_RESTRICTED_KEY`.  Never paste it into chat, source, docs, PR comments, committed `.env`, Compose files, or test fixtures.  Do not broaden permissions without executable evidence that the current least-privilege set is insufficient.
+
+## Phase 4 Reconciliation Model
+
+Phase 4 treats reconciliation as an evidence problem before it becomes a persistence problem.
+
+The production path is:
 
 ```text
-stripe-sandbox
+connector-managed Payment Link metadata
+-> Checkout Sessions for that Payment Link
+-> PaymentIntent for each applicable Session
+-> Charge for the successful PaymentIntent
+-> pure fail-closed reconciliation planner
+-> current Kimai invoice snapshot
+-> optional last-moment Kimai persistence
 ```
 
-under secret name:
+Strong successful evidence requires exact and mutually consistent identity, amount, currency, Payment Link, Checkout Session, PaymentIntent, Charge, paid/captured state, and full captured amount.
+
+Unknown, missing, unsupported, contradictory, partially captured, refunded, disputed, or ambiguous evidence never authorizes an automatic paid transition.
+
+Repeated customer visits can create multiple Checkout Sessions for one Payment Link.  Those attempts are not treated as competing Payment Links.  A later successful Session can still prove payment after an abandoned visit.  Multiple successful payments or multiple competing logical Payment Links remain conflicts/accounting anomalies.
+
+## Reconciliation Production Classes
+
+Important files under `Reconciliation/` include:
 
 ```text
-STRIPE_SANDBOX_RESTRICTED_KEY
+CheckoutSessionEvidence
+PaymentIntentEvidence
+ChargeEvidence
+ReconciliationCandidate
+ReconciliationPlan
+ReconciliationPlanner
+ReconciliationService
+ReconciliationStripeGateway
+StripeReconciliationGateway
+ReconciliationInvoice
+ReconciliationInvoiceStore
+KimaiReconciliationInvoiceStore
+ReconciliationServiceFactory
+StripeReconciliationServiceFactory
+ReconciliationItemOutcome
+ReconcileCommand
 ```
 
-The workflow maps that value only for the probe step to:
+The planner is pure.  The Stripe gateway is read-only.  Kimai mutation exists only behind `ReconciliationInvoiceStore`.
+
+## Stripe Discovery Boundary
+
+`StripeReconciliationGateway` uses the locked Stripe PHP SDK and performs GET-only reconciliation discovery:
 
 ```text
+Payment Links list, paginated
+Checkout Sessions list by Payment Link, paginated
+PaymentIntent retrieve
+Charge retrieve
+```
+
+Connector Payment Links are scoped by stable Kimai instance UUID before their remaining metadata is parsed.  Malformed connector metadata for another Kimai instance is ignored; malformed connector metadata for this instance fails closed for operator review.
+
+The gateway retains Stripe Charge `created` as evidence metadata for payment-date persistence.  The timestamp does not participate in heuristic identity matching.
+
+## Shared Money Boundary
+
+Kimai 2.65 exposes invoice amounts as floats in both invoice generation and persisted invoice entities.
+
+`Money::fromFloat()` is the single shared boundary for those framework floats.  It serializes the float to PHP's shortest round-trippable JSON decimal and then uses the exact decimal parser.  It performs no financial arithmetic and no rounding.
+
+Therefore:
+
+```text
+875.1 -> exact 87510 minor units
+0.1 + 0.2 -> 0.30000000000000004 -> reject / fail closed
+```
+
+Payment Link creation and reconciliation now use the same exact conversion policy.
+
+## Kimai Persistence Boundary
+
+`KimaiReconciliationInvoiceStore` uses verified Kimai 2.65 public APIs:
+
+```text
+App\Repository\InvoiceRepository
+App\Entity\Invoice
+App\Invoice\InvoiceService::saveInvoice()
+```
+
+The adapter does not manipulate Doctrine directly.
+
+Before a paid transition it:
+
+1. re-fetches the persisted Kimai invoice by invoice number;
+2. rebuilds exact connector metadata from current Kimai identity, amount, and currency;
+3. compares the current snapshot to the snapshot used during planning;
+4. compares the proven Stripe metadata to the planned Kimai metadata;
+5. returns an idempotent no-op if another process already marked the invoice paid;
+6. requires the proven Charge timestamp;
+7. sets Kimai's payment date;
+8. calls `setIsPaid()`; and
+9. persists through `InvoiceService::saveInvoice()` so Kimai's update pre/post events are preserved.
+
+If Kimai identity/amount/currency changes between planning and persistence, the write stops as `CONFLICT`.  A missing invoice, malformed current invoice, unavailable persistence, or invariant failure also stops without guessing paid state.
+
+## Payment-Date Policy
+
+ADR-009 now states that an automatic paid transition records the payment date from the proven Stripe Charge `created` timestamp.
+
+The timestamp is converted to the invoice creation timezone before Kimai stores its date-only payment field.  The reconciliation execution time is not used because it represents when polling noticed the payment rather than when Stripe recorded it.
+
+## External Command
+
+Phase 4 provides:
+
+```text
+php bin/console kimai:stripe:reconcile
+php bin/console kimai:stripe:reconcile --dry-run
+```
+
+The command is intended for cron, Jenkins, systemd timers, or manual execution.
+
+It accepts no invoice number and no desired financial state.  All mutations must be derived from configured Kimai identity + current Kimai state + Stripe evidence.
+
+Human output includes the ADR-013 category and safe invoice number, planned/applied mutation booleans, and a safe reason.
+
+Exit-code contract:
+
+| Result                   | Exit code |
+|--------------------------|----------:|
+| `SUCCESS` / `NO_CHANGE`  |         0 |
+| `RETRYABLE`              |        10 |
+| `CONFIGURATION_ERROR`    |        20 |
+| `CONFLICT`               |        30 |
+| `MANUAL_REVIEW_REQUIRED` |        40 |
+| `INTERNAL_ERROR`         |        50 |
+
+Independent invoices may continue after item-level problems when safe.  The final batch process code is the highest mapped code among item results so scheduler-visible attention is never hidden.
+
+Disabled reconciliation and no managed Payment Links are successful `NO_CHANGE` runs.
+
+## Configuration
+
+Configuration remains process-environment driven using:
+
+```text
+KIMAI_STRIPE_CONNECTOR_ENABLED
+KIMAI_STRIPE_CONNECTOR_PAYMENT_LINKS_ENABLED
+KIMAI_STRIPE_CONNECTOR_RECONCILIATION_ENABLED
+KIMAI_STRIPE_CONNECTOR_CLEANUP_GRACE_DAYS
+KIMAI_STRIPE_CONNECTOR_INSTANCE_ID
 KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY
+KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY_FILE
 ```
 
-Do not paste the credential into source, documentation, `.env`, Compose files, PR comments, test fixtures, artifacts, or ordinary chat messages.
+Reconciliation can run while automatic Payment Link generation is disabled, provided the global connector switch, reconciliation switch, stable instance UUID, and restricted Stripe credential are present.
 
-## Sandbox Workflow Security
+Direct and file-backed credential forms are mutually exclusive.  Broad `sk_*` credentials are rejected; restricted `rk_test_*` / `rk_live_*` shapes are required by the configuration primitive.  Never use a live credential during development/test without explicit owner authorization.
 
-The temporary PR-only trigger used to prove PR #8 was removed after the successful sandbox run.  The durable workflow is manual-only through `workflow_dispatch`.
+## Current Executable Coverage
 
-The Stripe secret is exposed only to the final probe step.  Checkout, PHP setup, and Composer installation run before the secret is placed in the step environment.
+Phase 4 repository tests cover:
 
-The probe refuses a live-mode restricted credential and redacts the known secret from exception text before writing diagnostics.
+- pure successful/failed/ambiguous reconciliation decisions;
+- exact amount/currency/metadata/object relationships;
+- partial capture;
+- refunds/disputes without reversal;
+- repeated Checkout attempts;
+- multiple competing Payment Links;
+- read-only Stripe SDK request construction and pagination;
+- malformed same-instance vs foreign-instance metadata;
+- retryable Stripe reads;
+- paid and unpaid orphans;
+- batch isolation;
+- dry-run behavior;
+- persistence failure;
+- Kimai last-moment financial drift;
+- concurrent already-paid idempotence;
+- Stripe Charge payment-date application; and
+- CLI configuration, dry-run, output categories, and exit codes.
 
-Ordinary PR CI remains credential-free.  Fork/Dependabot work must never receive the Stripe environment secret.
+The controlled Stripe tests live under `tests/Integration/` and are explicitly included in `phpunit.xml.dist`; they must actually execute under `composer check`.
 
-## Test Coverage Added in Phase 3
+See [`testing/test-matrix.md`](testing/test-matrix.md).
 
-Phase 3 adds unit and integration coverage around:
+## Production-Shaped Packaging Rule
 
-- Payment Link planning decisions;
-- exact reuse and create decisions;
-- financial conflicts;
-- ambiguity and malformed metadata;
-- inactive exact links;
-- deterministic idempotency request construction;
-- gateway pagination and response validation;
-- create failure classification;
-- timeout/uncertain-commit recovery;
-- real stripe-php HTTP request construction through a scripted fake HTTP client;
-- preview-before-config behavior;
-- disabled connector behavior;
-- safe URL hydration;
-- automatic-failure render blocking;
-- Kimai float-to-exact-money boundary behavior; and
-- the real Stripe sandbox contract probe described above.
-
-See [`testing/test-matrix.md`](testing/test-matrix.md) for current scenario mapping.
-
-## CI / Quality Gate
-
-The project quality bar remains:
-
-- PHP 8.2, 8.3, 8.4, and 8.5 checks green;
-- PHPUnit green;
-- PHPStan level 8 clean;
-- PHPCS clean;
-- PHP-CS-Fixer dry run clean;
-- Documentation/Doxygen clean with zero warnings;
-- disposable Kimai E2E clean; and
-- every active MegaLinter linter at exactly zero errors and zero warnings.
-
-Do not weaken, suppress, or exclude a real finding to make the gate green.
-
-Documentation/workflow changes near the end of Phase 3 retrigger ordinary CI.  Before recommending PR #8 for merge, inspect the **final head**, not an earlier green commit, and inspect the MegaLinter summary itself rather than relying only on the workflow conclusion.
-
-## Production-Shaped Packaging Rule to Preserve
-
-The disposable Kimai E2E harness must stage a production-shaped plugin using the committed lockfile and:
+The disposable Kimai E2E harness stages a production-shaped plugin from the committed lockfile using:
 
 ```text
 composer install --no-dev
 ```
 
-Do not copy the repository-root development `vendor/` tree into Kimai.  That earlier shape introduced development Symfony/PSR dependencies into Kimai and caused duplicate interface declarations despite a healthy pristine Kimai installation.
+Do not copy the repository-root development `vendor/` tree into Kimai.  Production packages carry only plugin production dependencies under ADR-012.  Test-only `App\...` Kimai mirrors under `tests/stubs/` are development autoload only and must never appear in the production-shaped artifact.
 
-The production artifact carries only the plugin's production dependency subset under ADR-012.
+## Real Stripe Evidence and Remaining E2E Gap
 
-## Configuration and Secret Boundary
+The current real sandbox workflow/probe proves Payment Link creation and required read permissions, but it still does **not** prove:
 
-Configuration remains environment-driven with prefix:
+- browser traversal of the Stripe-hosted link;
+- successful test-card Checkout;
+- real completed Checkout Session metadata;
+- real paid PaymentIntent/Charge relationships;
+- invocation of the reconciliation command against a disposable real Kimai invoice;
+- exact Kimai paid-state persistence from that real payment; or
+- idempotent rerun of that full flow.
 
-```text
-KIMAI_STRIPE_CONNECTOR_
-```
+Do not imply that lower-layer green tests prove those facts.
 
-Important variables include:
-
-```text
-ENABLED
-PAYMENT_LINKS_ENABLED
-RECONCILIATION_ENABLED
-CLEANUP_GRACE_DAYS
-INSTANCE_ID
-STRIPE_API_KEY
-STRIPE_API_KEY_FILE
-```
-
-A `.env` file is only one external mechanism for populating environment variables.  The connector does not implement a second dotenv parser or precedence model.
-
-Direct and file-backed Stripe credential forms are mutually exclusive.  Restricted key shapes are enforced.  Broad Stripe secret keys are rejected.
-
-## Architecture Boundaries That Still Apply
-
-Unless a later Accepted ADR changes them:
-
-- one Kimai plugin contains Payment Link and reconciliation capabilities with shared common primitives;
-- Kimai remains authoritative for invoice/business state;
-- Stripe remains authoritative for payment movement and Stripe objects;
-- no connector-owned payment ledger/database exists;
-- Kimai core and root Composer state are not patched;
-- no public Kimai ingress or Stripe webhook is required;
-- Stripe Payment Links remain the customer payment surface;
-- manual Payment Link creation and manual reconciliation remain permanent fallbacks;
-- ambiguity causes no automatic financial mutation;
-- false negatives are preferred to false-positive paid-state transitions;
-- paid orphans are retained for accounting review;
-- refunds/disputes do not automatically reverse historical Kimai paid state; and
-- cleanup retains uncertainty.
-
-## Next Safe Step After Phase 3
-
-Once PR #8 is final-head green, owner-reviewed, and owner-merged, begin **Phase 4: Reconciliation** from [`implementation-playbook.md`](implementation-playbook.md).
-
-Phase 4 should implement a deterministic external command suitable for cron/Jenkins/systemd/manual execution.  Start with pure reconciliation state/evidence logic before wiring Kimai persistence.
-
-The reconciliation path must prove strong evidence before marking an invoice paid, including exact identity, amount, currency, and successful Stripe payment state.  It must remain conservative for refunds, disputes, ambiguity, persistence failures, and reruns.
-
-The real Stripe sandbox key already has the read permissions required for Checkout Sessions, PaymentIntents, and Charges.  Do not add permissions merely because Phase 4 begins.  Expand privilege only if implemented behavior proves the current set insufficient.
-
-After Phase 4 exists, extend the real sandbox E2E from the current Payment Link contract probe to the canonical flow:
+The eventual canonical E2E remains:
 
 ```text
-real Kimai invoice
+real disposable Kimai invoice
 -> connector-created Payment Link
--> Stripe-hosted card Checkout
+-> Stripe-hosted sandbox card Checkout
 -> Session / PaymentIntent / Charge evidence
 -> reconciliation command
 -> exact Kimai paid-state transition
 -> idempotent reconciliation rerun
 ```
 
+No additional Stripe permissions are expected for that flow based on the already verified sandbox key, but privilege must not be expanded preemptively.
+
+## CI / Quality Gate
+
+A Phase 4 head is not ready for owner merge review until all of the following pass on that exact head/PR merge ref:
+
+- PHP 8.2, 8.3, 8.4, and 8.5;
+- PHPUnit including `tests/Integration`;
+- PHPStan level 8;
+- PHPCS;
+- PHP-CS-Fixer dry run;
+- Documentation/Doxygen with zero warnings;
+- disposable Kimai E2E; and
+- every active MegaLinter linter at exactly zero errors and zero warnings.
+
+Inspect the MegaLinter report itself.  A green workflow badge alone is insufficient.
+
+Do not weaken a quality gate to make the branch pass.
+
+## Next Work
+
+For PR #9 itself:
+
+1. finish any CI findings on the current Phase 4 persistence/command implementation;
+2. keep README, ADRs, decision index, handoff, and test matrix synchronized;
+3. review concurrency expectations and ensure the last-moment Kimai re-read/idempotent path is documented adequately;
+4. refresh the PR #9 body to describe the actual implemented scope rather than its original pure-planner-only draft;
+5. run and inspect all final-head quality gates; and
+6. only then recommend owner review/approval.
+
+A full hosted Stripe paid E2E may be added when it can be performed deterministically and safely with the existing sandbox credential and disposable Kimai.  Do not use live credentials or real money.
+
+Phase 5 after Phase 4 is conservative orphan cleanup under ADR-010.
+
 ## Resume Checklist
 
 A new engineering session should:
 
-1. inspect PR #8 and current branch/head state;
-2. read this handoff, the implementation playbook, decisions index, and relevant ADRs;
-3. verify whether Phase 3 has been merged;
-4. if PR #8 is still open, finish only remaining final-head validation/documentation/review items;
-5. if PR #8 is merged, begin Phase 4 reconciliation rather than adding more Payment Link surface casually;
-6. preserve the verified Stripe permission set unless executable evidence requires change;
-7. keep the real Stripe workflow manual-only and secret-safe;
-8. maintain production-shaped Kimai packaging; and
-9. never merge, release, or use live Stripe credentials without explicit owner authorization.
+1. inspect PR #9, its head SHA, current draft state, and current CI;
+2. read this handoff, implementation playbook, decision index, ADR-009, ADR-011, ADR-013, and test matrix;
+3. preserve the verified Stripe permission set;
+4. preserve the shared exact money policy and TOCTOU re-read before paid mutation;
+5. keep reconciliation read-only on Stripe;
+6. keep the command evidence-derived rather than accepting arbitrary financial-state instructions;
+7. maintain production-shaped Kimai packaging and dev-only test stubs;
+8. treat full hosted paid E2E as unproven until actually executed; and
+9. never merge, release, make the repository public, use live Stripe credentials, or perform live financial mutation without explicit owner authorization.

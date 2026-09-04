@@ -2,7 +2,7 @@
 
 /**
  * @file
- * @brief Converts supported decimal invoice amounts to exact Stripe minor units.
+ * @brief Converts supported invoice amounts to exact Stripe minor units.
  */
 
 declare(strict_types=1);
@@ -10,15 +10,21 @@ declare(strict_types=1);
 namespace KimaiPlugin\KimaiStripeConnectorBundle\Common\Money;
 
 use InvalidArgumentException;
+use JsonException;
 
 /**
  * @brief Positive invoice money represented exactly in integer minor units.
  *
  * @details
  * Decimal input is parsed as text.  Binary floating-point arithmetic is never
- * used for authoritative conversion or comparison.  Stripe payment amounts are
- * limited to eight digits in minor units, so larger invoices fail before any
- * remote mutation is attempted.
+ * used for authoritative conversion or comparison.  When a framework boundary
+ * exposes a float, fromFloat() first serializes it to PHP's shortest JSON decimal
+ * representation and then feeds that text into the exact decimal parser.  Values
+ * carrying binary-artifact precision beyond the supported currency precision
+ * therefore fail closed instead of being rounded.
+ *
+ * Stripe payment amounts are limited to eight digits in minor units, so larger
+ * invoices fail before any remote mutation is attempted.
  */
 final readonly class Money
 {
@@ -73,6 +79,34 @@ final readonly class Money
         }
 
         return new self((int) $minorString, new CurrencyCode($currency));
+    }
+
+    /**
+     * @brief Convert a framework-provided float without rounding or float arithmetic.
+     *
+     * @details
+     * The float is serialized using PHP's shortest round-trippable JSON decimal
+     * representation.  The resulting text must satisfy the same exact two-decimal
+     * policy as direct decimal input.  A value such as 0.1 + 0.2 therefore remains
+     * 0.30000000000000004 and is rejected rather than silently rounded to 0.30.
+     *
+     * @throws InvalidArgumentException When the float cannot be represented exactly under the money policy.
+     */
+    public static function fromFloat(float $amount, string $currency): self
+    {
+        try {
+            $decimal = json_encode(
+                $amount,
+                JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR,
+            );
+        } catch (JsonException $exception) {
+            throw new InvalidArgumentException(
+                'Invoice amount could not be serialized for exact money conversion.',
+                previous: $exception,
+            );
+        }
+
+        return self::fromDecimal($decimal, $currency);
     }
 
     /**

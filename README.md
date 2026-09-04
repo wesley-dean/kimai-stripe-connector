@@ -18,21 +18,26 @@ Kimai does not need public Internet ingress and Stripe webhooks are not required
 
 ## Project Status
 
-Architecture and implementation-preparation decisions are Accepted.
+Phases 1 through 3 are merged.  Phase 4 reconciliation is under active development in draft PR #9.
 
 The repository now contains:
 
-- an inert installable Kimai plugin bundle skeleton;
+- a self-contained installable Kimai plugin bundle;
 - PHP/Composer package metadata and a committed minimum-PHP-resolved `composer.lock`;
 - PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer project-local tooling;
 - PHP 8.2–8.5 CI using the same locked dependency graph;
 - a disposable Kimai 2.65.0 + MySQL plugin-lifecycle E2E harness;
 - PHP-aware MegaLinter configuration with auto-fixes disabled;
 - Doxygen/PHPDoc source-documentation standards and generated reference tooling;
-- Accepted ADRs for architecture, compatibility, testing, payment behavior, packaging, recovery, cleanup, and operator results; and
+- production Payment Link generation/recovery through Kimai's invoice pre-render seam;
+- conservative read-only Stripe reconciliation evidence discovery;
+- fail-closed reconciliation planning and batch orchestration;
+- a Kimai paid-state persistence adapter with last-moment consistency checks;
+- the external `kimai:stripe:reconcile` command with `--dry-run` and stable exit codes;
+- a manual real-Stripe sandbox contract probe; and
 - detailed design/testing/threat/configuration/handoff documentation.
 
-No production Stripe Payment Link creation or reconciliation logic has been implemented yet.
+PR #9 remains draft until its Phase 4 implementation, documentation, and final-head validation are complete.  Do not treat draft branch behavior as a released compatibility promise.
 
 ## Start Here
 
@@ -86,7 +91,7 @@ Current independent decisions are split into focused ADRs, including:
 - conservative orphan cleanup;
 - idempotent partial-failure recovery;
 - self-contained plugin packaging; and
-- stable operator result categories.
+- stable operator result categories and reconciliation exit codes.
 
 Use the decision index to find the authoritative ADR rather than relying on this summary.
 
@@ -125,6 +130,37 @@ Stripe credential: one least-privilege restricted key initially
 `composer.lock` is resolved from the minimum supported PHP 8.2 environment and committed.  PHP 8.2, 8.3, 8.4, and 8.5 CI install that same graph.
 
 Compatibility claims must follow executable evidence.
+
+## Reconciliation Command
+
+Phase 4 provides the externally schedulable command:
+
+```text
+php bin/console kimai:stripe:reconcile
+```
+
+A non-destructive inspection run is:
+
+```text
+php bin/console kimai:stripe:reconcile --dry-run
+```
+
+The command accepts no invoice number and no desired paid state.  It discovers connector-managed Stripe evidence for the configured Kimai instance and permits a Kimai paid transition only after exact identity, amount, currency, and mutually consistent successful card-payment evidence are proven.
+
+Human output includes the stable ADR-013 result category.  Process exit codes are:
+
+| Result category          | Exit code |
+|--------------------------|----------:|
+| `SUCCESS` / `NO_CHANGE`  |         0 |
+| `RETRYABLE`              |        10 |
+| `CONFIGURATION_ERROR`    |        20 |
+| `CONFLICT`               |        30 |
+| `MANUAL_REVIEW_REQUIRED` |        40 |
+| `INTERNAL_ERROR`         |        50 |
+
+For a safe multi-invoice batch, independent invoices may continue after an item-level problem and the final process code is the highest applicable mapped code.
+
+When an automatic transition succeeds, Kimai's payment date is derived from the proven Stripe Charge creation timestamp, converted to the invoice creation timezone before Kimai stores its date-only payment field.  The later reconciliation execution time is not used as the accounting date.
 
 ## Plugin Packaging
 
@@ -247,6 +283,8 @@ KIMAI_STRIPE_CONNECTOR_*
 ```
 
 Environment variables are the primary configuration interface.  File-backed secret injection is preferred for sensitive production/container values.  `.env` support is tertiary local/dev/test convenience.
+
+Reconciliation requires the global connector switch, reconciliation capability switch, stable instance UUID, and restricted Stripe credential.  Payment Link generation may remain independently disabled.
 
 See [`doc/configuration.md`](doc/configuration.md).
 

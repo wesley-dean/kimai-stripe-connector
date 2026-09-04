@@ -185,21 +185,29 @@ The file-backed form is preferred for containerized production deployments using
 
 ADR-004 currently requires one restricted Stripe key with only the permissions needed for the connector's accepted behavior.
 
-The key should be able to perform the minimum required operations for:
+The verified Stripe sandbox permission set is:
 
-- connector-managed Payment Link creation, retrieval/listing, and deactivation;
-- the inline one-time product/price representation used by Payment Link creation;
-- Checkout Session retrieval/listing related to connector-managed links;
-- PaymentIntent retrieval needed for reconciliation; and
-- Charge retrieval needed for reconciliation.
+| Stripe resource     | Permission |
+|---------------------|------------|
+| Payment Links       | Write      |
+| Checkout Sessions   | Read       |
+| Payment Intents     | Read       |
+| Charges             | Read       |
+| Products            | None       |
+| Prices              | None       |
+| All other resources | None       |
 
-It should not carry unrelated payout, subscription, customer-management, account-administration, or generalized billing permissions.
+`Payment Links: Write` supplies connector-managed Payment Link creation, retrieval/listing, and deactivation.  The real sandbox probe also proved that the inline one-time `price_data` / `product_data` request works while Products and Prices remain `None`.
 
-The exact Stripe dashboard permission labels remain to be verified against a real restricted sandbox key.  Once verified, they should be recorded in operator/deployment documentation and covered by sandbox validation.
+Phase 4 reconciliation uses Checkout Sessions `Read`, Payment Intents `Read`, and Charges `Read`.  It performs no Stripe mutation and requires no permission expansion beyond the verified Phase 3 set.
+
+The credential should not carry unrelated payout, subscription, customer-management, account-administration, refund, or generalized billing permissions.
 
 The connector SHALL fail clearly when the supplied credential lacks a required permission.
 
-Phase 2 does not make a Stripe API request, so no real Stripe credential is needed to build or validate the Phase 2 primitives.
+The executable permission evidence and GitHub Actions secret boundary are documented in [`stripe-restricted-key.md`](stripe-restricted-key.md).
+
+No real Stripe credential is required for unit tests or controlled-SDK integration tests.  The manual real-sandbox workflow is the only ordinary repository test path that receives the sandbox restricted key.
 
 ## Secret Resolution
 
@@ -472,6 +480,7 @@ Threats and controls related to configuration are maintained in [`threat-model.m
 - [`doc/adr/ADR-004-freeze-initial-compatibility-and-stripe-contract.md`](adr/ADR-004-freeze-initial-compatibility-and-stripe-contract.md) — initial SDK/payment/money/metadata/credential contract
 - [`doc/adr/ADR-005-private-kimai-outbound-stripe-integration.md`](adr/ADR-005-private-kimai-outbound-stripe-integration.md) — private Kimai and outbound-only Stripe boundary
 - [`doc/adr/ADR-008-use-versioned-stripe-metadata-for-correlation.md`](adr/ADR-008-use-versioned-stripe-metadata-for-correlation.md) — stable instance identity and metadata correlation
+- [`doc/stripe-restricted-key.md`](stripe-restricted-key.md) — verified least-privilege Stripe sandbox permissions
 - [`doc/threat-model.md`](threat-model.md) — security model
 - [`doc/reference-hosting-environment.md`](reference-hosting-environment.md) — sanitized dogfooding environment
 - [`doc/testing/test-matrix.md`](testing/test-matrix.md) — executable test-layer mapping

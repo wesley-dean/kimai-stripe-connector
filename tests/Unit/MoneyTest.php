@@ -31,6 +31,21 @@ final class MoneyTest extends TestCase
         yield 'Stripe eight-digit maximum' => ['999999.99', 'usd', Money::MAX_MINOR_UNITS];
     }
 
+    public function testFrameworkFloatConversionUsesExactDecimalPolicy(): void
+    {
+        $money = Money::fromFloat(875.1, 'USD');
+
+        self::assertSame(87510, $money->minorUnits());
+        self::assertSame('usd', $money->currency()->value());
+    }
+
+    public function testFrameworkFloatBinaryArtifactFailsClosedInsteadOfRounding(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        Money::fromFloat(0.1 + 0.2, 'usd');
+    }
+
     #[DataProvider('invalidAmountProvider')]
     public function testInvalidAmountPolicyRejectsUnsafeValues(string $amount): void
     {

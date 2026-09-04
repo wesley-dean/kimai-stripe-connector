@@ -11,7 +11,6 @@ namespace KimaiPlugin\KimaiStripeConnectorBundle\PaymentLink;
 
 use App\Invoice\InvoiceModel;
 use InvalidArgumentException;
-use JsonException;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Identity\KimaiInstanceId;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Metadata\InvoiceMetadata;
 use KimaiPlugin\KimaiStripeConnectorBundle\Common\Money\Money;
@@ -26,10 +25,10 @@ final class KimaiInvoiceMetadataFactory
      * @brief Build exact connector metadata from one non-preview Kimai invoice model.
      *
      * @details
-     * Kimai 2.65 exposes calculator totals as floats.  The connector performs no
-     * financial arithmetic or rounding on that value.  Instead, it serializes the
-     * float to PHP's shortest JSON decimal representation and feeds that text into
-     * the exact Money parser.  Values carrying binary-artifact precision beyond the
+     * Kimai 2.65 exposes calculator totals as floats.  Money::fromFloat() performs
+     * no financial arithmetic or rounding: it serializes the float to PHP's
+     * shortest JSON decimal representation and feeds that text into the exact
+     * two-decimal parser.  Values carrying binary-artifact precision beyond the
      * supported currency precision therefore fail closed.
      *
      * @throws PaymentLinkGenerationException When the model cannot be represented by the connector contract.
@@ -42,17 +41,12 @@ final class KimaiInvoiceMetadataFactory
         }
 
         try {
-            $decimal = json_encode(
-                $calculator->getTotal(),
-                JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR,
-            );
-
             return new InvoiceMetadata(
                 $instanceId,
                 $model->getInvoiceNumber(),
-                Money::fromDecimal($decimal, $model->getCurrency()),
+                Money::fromFloat($calculator->getTotal(), $model->getCurrency()),
             );
-        } catch (JsonException | InvalidArgumentException $exception) {
+        } catch (InvalidArgumentException $exception) {
             throw new PaymentLinkGenerationException(
                 'Kimai invoice total cannot be represented exactly by the connector money policy.',
                 previous: $exception,

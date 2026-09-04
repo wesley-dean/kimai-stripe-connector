@@ -24,7 +24,9 @@ Create one Stripe restricted **sandbox/test-mode** key for the connector with th
 
 `Payment Links: Write` supplies the Payment Link create, retrieve/list, and update/deactivation access needed by the connector.  The sandbox probe demonstrated that Stripe also accepts the connector's inline one-time `price_data` / `product_data` Payment Link request without granting separate Products or Prices permissions.
 
-No payout, subscription, customer-management, refund, account-administration, or unrelated billing permission is required by the currently implemented Payment Link capability.
+Phase 4 reconciliation uses the already verified read permissions for Checkout Sessions, PaymentIntents, and Charges.  Reconciliation performs no Stripe mutation and requires no permission expansion beyond the Phase 3 sandbox set.
+
+No payout, subscription, customer-management, refund, account-administration, or unrelated billing permission is required by the currently implemented Payment Link and reconciliation capabilities.
 
 ## Executable Evidence
 
@@ -56,6 +58,8 @@ The successful sandbox run verified:
 - Payment Link deactivation during cleanup.
 
 The initial sandbox attempt also demonstrated that Payment Link creation succeeds while Products and Prices remain `None`.  Its failure was an order-sensitive local metadata comparison, not a Stripe permission failure.  The comparison was corrected to canonical key/value comparison and the subsequent probe passed.
+
+Phase 4's controlled-SDK tests additionally prove the exact read-only request path used for Payment Link -> Checkout Session -> PaymentIntent -> Charge reconciliation, but those deterministic fake-network tests do not replace the real sandbox permission evidence above.
 
 ## GitHub Actions Secret Boundary
 

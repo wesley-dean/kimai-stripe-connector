@@ -86,7 +86,7 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 
 **Status:** Accepted
 
-**Decision:** Automatically move Kimai toward paid state only with exact identity, amount, currency, and strong mutually consistent Stripe evidence.  Fail closed on uncertainty and do not automatically reverse historical paid state for later refunds/disputes.
+**Decision:** Automatically move Kimai toward paid state only with exact identity, amount, currency, and strong mutually consistent Stripe evidence.  Fail closed on uncertainty, do not automatically reverse historical paid state for later refunds/disputes, and record an automatic payment date from the proven Stripe Charge timestamp rather than the later reconciliation execution time.
 
 **Source:** [`ADR-009`](adr/ADR-009-reconcile-only-on-strong-stripe-payment-evidence.md)
 
@@ -102,7 +102,7 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 
 **Status:** Accepted
 
-**Decision:** Treat Stripe/Kimai as a distributed system: use idempotency, exact rediscovery, durable metadata correlation, conflict detection, and conservative repair instead of pretending remote creation and Kimai persistence are atomic.
+**Decision:** Treat Stripe/Kimai as a distributed system: use idempotency, exact rediscovery, durable metadata correlation, conflict detection, and conservative repair instead of pretending remote creation and Kimai persistence are atomic.  Reconciliation does not claim an internal distributed lock; it revalidates Kimai immediately before mutation, remains monotonic/idempotent, and expects schedulers to avoid overlapping runs when duplicate Kimai update events would be undesirable.
 
 **Source:** [`ADR-011`](adr/ADR-011-design-for-idempotent-recovery-from-partial-failure.md)
 
@@ -118,6 +118,6 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 
 **Status:** Accepted
 
-**Decision:** Use stable operator-facing categories `SUCCESS`, `NO_CHANGE`, `RETRYABLE`, `CONFIGURATION_ERROR`, `CONFLICT`, `MANUAL_REVIEW_REQUIRED`, and `INTERNAL_ERROR` across CLI behavior, logs, tests, and runbooks.
+**Decision:** Use stable operator-facing categories `SUCCESS`, `NO_CHANGE`, `RETRYABLE`, `CONFIGURATION_ERROR`, `CONFLICT`, `MANUAL_REVIEW_REQUIRED`, and `INTERNAL_ERROR` across CLI behavior, logs, tests, and runbooks.  The reconciliation CLI maps those categories to stable exit codes `0`, `10`, `20`, `30`, `40`, and `50`, with successful categories sharing zero and batch execution returning the highest applicable mapped code.
 
 **Source:** [`ADR-013`](adr/ADR-013-use-stable-operator-result-taxonomy.md)

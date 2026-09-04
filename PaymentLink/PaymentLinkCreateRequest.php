@@ -16,14 +16,8 @@ use KimaiPlugin\KimaiStripeConnectorBundle\Common\Metadata\InvoiceMetadata;
  */
 final readonly class PaymentLinkCreateRequest
 {
-    /**
-     * @param array<string, mixed> $parameters Stripe Payment Link create parameters.
-     * @param array<string, string> $requestOptions Stripe SDK request options.
-     */
-    private function __construct(
-        private array $parameters,
-        private array $requestOptions,
-    ) {
+    private function __construct(private InvoiceMetadata $metadata)
+    {
     }
 
     /**
@@ -37,44 +31,51 @@ final readonly class PaymentLinkCreateRequest
      */
     public static function fromInvoiceMetadata(InvoiceMetadata $metadata): self
     {
-        $stripeMetadata = $metadata->toStripeMetadata();
-
-        return new self(
-            [
-                'line_items' => [
-                    [
-                        'price_data' => [
-                            'currency' => $metadata->money()->currency()->value(),
-                            'product_data' => [
-                                'name' => 'Kimai invoice payment',
-                            ],
-                            'unit_amount' => $metadata->money()->minorUnits(),
-                        ],
-                        'quantity' => 1,
-                    ],
-                ],
-                'metadata' => $stripeMetadata,
-                'payment_intent_data' => [
-                    'metadata' => $stripeMetadata,
-                ],
-                'payment_method_types' => ['card'],
-            ],
-            [
-                'idempotency_key' => self::idempotencyKey($stripeMetadata),
-            ],
-        );
+        return new self($metadata);
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array{
+     *     line_items: array{0: array{
+     *         price_data: array{currency: string, product_data: array{name: string}, unit_amount: int},
+     *         quantity: int
+     *     }},
+     *     metadata: array<string, string>,
+     *     payment_intent_data: array{metadata: array<string, string>},
+     *     payment_method_types: array{0: string}
+     * }
+     */
     public function parameters(): array
     {
-        return $this->parameters;
+        $stripeMetadata = $this->metadata->toStripeMetadata();
+
+        return [
+            'line_items' => [
+                [
+                    'price_data' => [
+                        'currency' => $this->metadata->money()->currency()->value(),
+                        'product_data' => [
+                            'name' => 'Kimai invoice payment',
+                        ],
+                        'unit_amount' => $this->metadata->money()->minorUnits(),
+                    ],
+                    'quantity' => 1,
+                ],
+            ],
+            'metadata' => $stripeMetadata,
+            'payment_intent_data' => [
+                'metadata' => $stripeMetadata,
+            ],
+            'payment_method_types' => ['card'],
+        ];
     }
 
-    /** @return array<string, string> */
+    /** @return array{idempotency_key: string} */
     public function requestOptions(): array
     {
-        return $this->requestOptions;
+        return [
+            'idempotency_key' => self::idempotencyKey($this->metadata->toStripeMetadata()),
+        ];
     }
 
     /**

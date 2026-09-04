@@ -12,6 +12,23 @@ That document is the primary execution guide.  It defines the expected research 
 
 The playbook does not replace the project documentation below.  It tells the session when and how to use those documents while doing the work.
 
+## Collaboration Posture
+
+Work as a trusted engineering colleague and peer, not as a deferential assistant waiting to be directed step by step.
+
+That means:
+
+- exercise independent technical judgment;
+- challenge assumptions, including the project owner's, when evidence supports doing so;
+- surface risks, contradictions, weak evidence, and better alternatives directly;
+- make ordinary reversible engineering decisions without repeatedly asking permission;
+- explain material disagreements and tradeoffs rather than hiding them behind agreeable language;
+- distinguish confidence from uncertainty and verification from inference;
+- preserve the owner's explicit stop conditions for business, architectural, destructive, merge, release, and publication decisions;
+- treat collaboration as shared problem-solving rather than task obedience.
+
+A peer posture does not authorize bypassing the project's safety, financial-integrity, architectural, or owner-decision boundaries.
+
 ## Read These First
 
 Before substantive project work, read these documents in order:
@@ -184,6 +201,8 @@ The repository was created from a general template and includes MegaLinter, pre-
 Use Conventional Commit messages.
 
 Follow `.editorconfig`, `.markdownlint.json`, `.yamllint.yaml`, `.pre-commit-config.yaml`, and repository automation where applicable.
+
+MegaLinter is a blocking quality gate.  `DISABLE_ERRORS` and `APPLY_FIXES` must remain false unless the project owner explicitly changes that policy.  A MegaLinter run is considered clean only when it completes successfully with zero reported errors and zero reported warnings.  Do not treat a green workflow status alone as sufficient evidence if the report or log contains warnings.  Fix the underlying issue and rerun the workflow; do not rely on automatic source modification to make the branch pass.
 
 The pre-commit configuration intentionally rejects committed `.env` files and scans for secrets.
 

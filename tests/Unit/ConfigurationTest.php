@@ -21,7 +21,10 @@ final class ConfigurationTest extends TestCase
         self::assertFalse($configuration->enabled());
         self::assertFalse($configuration->paymentLinksEnabled());
         self::assertFalse($configuration->reconciliationEnabled());
-        self::assertSame(EnvironmentConfigurationLoader::DEFAULT_CLEANUP_GRACE_DAYS, $configuration->cleanupGraceDays());
+        self::assertSame(
+            EnvironmentConfigurationLoader::DEFAULT_CLEANUP_GRACE_DAYS,
+            $configuration->cleanupGraceDays(),
+        );
         self::assertNull($configuration->instanceId());
         self::assertNull($configuration->stripeCredential());
     }
@@ -44,7 +47,9 @@ final class ConfigurationTest extends TestCase
     public function testEnabledReconciliationAcceptsTrimmedFileCredential(): void
     {
         $loader = new EnvironmentConfigurationLoader(
-            static fn (string $path): string => $path === '/mounted/stripe-key' ? "  " . self::testKey() . "\n" : ''
+            static fn (string $path): string => $path === '/mounted/stripe-key'
+                ? "  " . self::testKey() . "\n"
+                : ''
         );
 
         $configuration = $loader->load([
@@ -80,7 +85,9 @@ final class ConfigurationTest extends TestCase
     public function testUnreadableSecretFileFailureIsPreserved(): void
     {
         $loader = new EnvironmentConfigurationLoader(
-            static fn (string $path): string => throw new ConfigurationException(sprintf('Unreadable secret file: %s', $path))
+            static fn (string $path): string => throw new ConfigurationException(
+                sprintf('Unreadable secret file: %s', $path)
+            )
         );
 
         $this->expectException(ConfigurationException::class);

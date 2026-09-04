@@ -1,0 +1,52 @@
+---
+name: Stripe Sandbox
+
+# yamllint disable-line rule:truthy
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - synchronize
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-probe:
+    name: Restricted-key contract probe
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.number == 8 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor == 'wesley-dean')
+    runs-on: ubuntu-24.04
+    environment: stripe-sandbox
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # pin@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # pin@2.37.2
+        with:
+          php-version: "8.3"
+          extensions: curl, json, mbstring
+          coverage: none
+          tools: composer:v2
+
+      - name: Install locked dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Probe real Stripe sandbox contract
+        env:
+          KIMAI_STRIPE_CONNECTOR_INSTANCE_ID: 01991d84-d6ac-7a2d-8c93-6d92f865a811
+          KIMAI_STRIPE_CONNECTOR_STRIPE_API_KEY: ${{ secrets.STRIPE_SANDBOX_RESTRICTED_KEY }}
+          STRIPE_SANDBOX_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set +x
+          php tests/e2e/stripe-sandbox-smoke.php

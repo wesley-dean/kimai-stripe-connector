@@ -26,7 +26,9 @@ Create one Stripe restricted **sandbox/test-mode** key for the connector with th
 
 Phase 4 reconciliation uses the already verified read permissions for Checkout Sessions, PaymentIntents, and Charges.  Reconciliation performs no Stripe mutation and requires no permission expansion beyond the Phase 3 sandbox set.
 
-No payout, subscription, customer-management, refund, account-administration, or unrelated billing permission is required by the currently implemented Payment Link and reconciliation capabilities.
+Phase 5 conservative cleanup also requires no permission expansion.  It reuses the same read permissions to inspect payment evidence and the already-granted Payment Links `Write` permission for the single permitted Stripe mutation, setting an already-proven orphan Payment Link to `active=false`.
+
+No payout, subscription, customer-management, refund, account-administration, or unrelated billing permission is required by the currently implemented Payment Link, reconciliation, and cleanup behavior.
 
 ## Executable Evidence
 
@@ -59,7 +61,9 @@ The successful sandbox run verified:
 
 The initial sandbox attempt also demonstrated that Payment Link creation succeeds while Products and Prices remain `None`.  Its failure was an order-sensitive local metadata comparison, not a Stripe permission failure.  The comparison was corrected to canonical key/value comparison and the subsequent probe passed.
 
-Phase 4's controlled-SDK tests additionally prove the exact read-only request path used for Payment Link -> Checkout Session -> PaymentIntent -> Charge reconciliation, but those deterministic fake-network tests do not replace the real sandbox permission evidence above.
+Phase 4's controlled-SDK tests additionally prove the exact read-only request path used for Payment Link -> Checkout Session -> PaymentIntent -> Charge reconciliation.  Phase 5 controlled-SDK tests prove the guarded retrieve-then-update request used for cleanup and confirm that the SDK sends only the `active=false` Payment Link mutation.  These deterministic fake-network tests do not replace the real sandbox permission evidence above.
+
+The existing real sandbox probe proves that the permission can deactivate a connector-created Payment Link.  It does not claim to execute the complete Phase 5 stale-orphan eligibility and repeated-revalidation algorithm against a real Stripe account; that safety logic remains deterministic repository evidence unless a later narrowly scoped sandbox exercise is deliberately added.
 
 ## GitHub Actions Secret Boundary
 

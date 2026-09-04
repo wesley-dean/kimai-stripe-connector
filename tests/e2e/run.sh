@@ -88,17 +88,15 @@ readonly PLUGIN_STAGE
 # Symfony, or other require-dev packages under vendor/; copying that tree into
 # Kimai would test a development workspace rather than the self-contained runtime
 # artifact required by ADR-012 and can collide with Kimai's own dependencies.
-(
-  cd "${REPOSITORY_ROOT}"
-  tar \
-    --exclude='./.git' \
-    --exclude='./vendor' \
-    --exclude='./build' \
-    --exclude='./coverage' \
-    --exclude='./dist' \
-    --exclude='./doc/reference' \
-    -cf - .
-) | tar -C "${PLUGIN_STAGE}" -xf -
+tar \
+  -C "${REPOSITORY_ROOT}" \
+  --exclude='./.git' \
+  --exclude='./vendor' \
+  --exclude='./build' \
+  --exclude='./coverage' \
+  --exclude='./dist' \
+  --exclude='./doc/reference' \
+  -cf - . | tar -C "${PLUGIN_STAGE}" -xf -
 
 composer install \
   --working-dir="${PLUGIN_STAGE}" \

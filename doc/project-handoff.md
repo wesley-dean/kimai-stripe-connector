@@ -1,212 +1,142 @@
 # Project Handoff
 
-Date: 2026-09-03
+Date: 2026-09-04
 
 ## Purpose
 
-This document exists so a new human or AI/LLM development session can resume work on this repository without access to the conversation that created the initial architecture.
+This document gives a new human or AI/LLM engineering session enough current context to resume `kimai-stripe-connector` without the conversation that produced the project.
 
-Read this document before making implementation decisions.  Then read ADR-001 and the pre-implementation mock record in full.
+For autonomous work, begin with [`implementation-playbook.md`](implementation-playbook.md), then use [`decisions.md`](decisions.md) to locate the relevant Accepted ADRs.
 
-## Executive Summary
+## Current State
 
-`kimai-stripe-connector` is intended to be a small self-hosted Kimai plugin that connects Kimai invoices to Stripe Payment Links while preserving Kimai as the invoice system and Stripe as the payment processor.
+The project has moved from pure architecture into implementation preparation.
 
-The desired user workflow is:
+As of this handoff:
+
+- ADRs 000 through 013 are Accepted;
+- the original large ADR-001 rationale is preserved under `doc/adr/rationale/`, while its independent decisions are split into smaller ADRs;
+- an inert Kimai plugin bundle skeleton exists;
+- PHP/Composer package metadata exists;
+- PHPUnit and PHPStan configuration exists;
+- MegaLinter uses the PHP flavor and remains a zero-error/zero-warning gate with auto-fixes disabled;
+- PHP CI targets PHP 8.2, 8.3, 8.4, and 8.5;
+- a disposable Kimai 2.65.0 + MySQL E2E lifecycle harness exists under `tests/e2e/`;
+- the E2E harness constructs fresh containers/volumes, installs the plugin, reloads Kimai, verifies it, removes it, reloads again, and destroys all local test state;
+- Doxygen is configured to generate PHP reference documentation under ignored `doc/reference/`;
+- no production Stripe mutation behavior has been implemented yet;
+- no real Stripe credential is committed or expected in the repository; and
+- no production/live Stripe payment has been performed by this project.
+
+The current implementation-preparation branch is:
+
+```text
+chore/implementation-prep
+```
+
+Do not assume that branch remains open forever; inspect current repository/PR state when beginning a new session.
+
+## Product Goal
+
+Build a small self-hosted Kimai plugin that connects Kimai invoices to Stripe Payment Links while preserving clear authority boundaries.
+
+Desired flow:
 
 ```text
 track time in Kimai
--> generate invoice
+-> generate Kimai invoice
 -> connector creates or recovers exact Stripe Payment Link
--> invoice contains Stripe-hosted payment URL
+-> invoice exposes Stripe-hosted payment URL
 -> customer pays Stripe
--> asynchronous connector reconciliation verifies payment
+-> asynchronous reconciliation verifies exact payment evidence
 -> Kimai invoice becomes paid
 ```
 
-Kimai must not require public Internet ingress.  Stripe webhooks are not required.  Manual operation remains a permanent fallback.
+The connector is an optimization over a permanently valid manual workflow, not a prerequisite for billing.
 
-The current architectural direction is **one plugin with two independently disableable capabilities**:
+## Core Authority Boundaries
 
-1. Payment Link generation/recovery and invoice-rendering support.
-2. Payment reconciliation that conservatively marks Kimai invoices paid.
+Kimai is authoritative for:
 
-ADR-001 is currently `Proposed`, not `Accepted`.
+- invoice identity;
+- amount and currency as invoiced;
+- time/business records;
+- invoice documents; and
+- Kimai invoice state.
 
-## Repository State at Handoff
+Stripe is authoritative for:
 
-At this handoff point:
+- Payment Links;
+- Checkout Sessions;
+- PaymentIntents;
+- Charges;
+- refunds/disputes; and
+- actual payment movement.
 
-- the repository is still primarily a project scaffold plus design documentation;
-- no production PHP Kimai plugin implementation has been committed;
-- no real Stripe credentials are in the repository;
-- no live Stripe payment has been executed by the design conversation;
-- no packaged plugin has yet been installed and tested against the reference Kimai instance;
-- the main implementation architecture is documented in `doc/adr/ADR-001-single-plugin-architecture.md`;
-- the historical synthetic design exercise is documented in `doc/testing/preimplementation-mock-exercise.md`;
-- AI/agent-specific guidance is in `AGENTS.md`;
-- ADR-000 provides project-level epistemic/separation-of-concerns rules;
-- the repository was cloned from a generic template, and several root/config files still contain template residue.
+The connector owns:
 
-The open documentation PR at the time of this handoff is PR #3, branch `docs/adr-single-plugin-architecture`.
+- its versioned correlation contract;
+- exact mapping between Kimai invoices and connector-managed Stripe objects; and
+- conservative rules deciding whether Stripe evidence is sufficient for a Kimai mutation.
 
-## Why the Project Exists
+The connector does not own a third payment ledger.
 
-The original operational need was replacing a very low-volume Harvest billing/time-tracking workflow with a self-hosted system.
+## Accepted Architecture
 
-The environment already uses Stripe for payments.  Kimai became the preferred self-hosted time/invoice system after comparing alternatives.
-
-The fully manual workflow is viable:
-
-```text
-Kimai invoice
--> create Stripe Payment Link manually
--> paste URL into/with invoice
--> send
--> customer pays
--> operator checks Stripe
--> operator marks Kimai invoice paid
-```
-
-The connector exists to remove the repetitive link-generation step and the risk that paid Stripe invoices remain stale/unpaid in Kimai because manual reconciliation was forgotten.
-
-The expected billing volume is small.  Complexity therefore has to justify itself strongly.
-
-## Product Philosophy
-
-The plugin should be small, boring, conservative, removable, and auditable.
-
-The project does **not** want to build a general billing platform.
-
-A useful summary sentence is:
-
-> Create or recover a Stripe payment link for a Kimai invoice, expose that link to the invoice, and conservatively mark the invoice paid when Stripe proves the exact payment succeeded.
-
-If implementation starts requiring a large persistence layer, queues, public controllers, dashboards, broad accounting abstractions, or custom billing state machines, revisit the architecture before continuing.
-
-## Hard Requirements
-
-These came from the original design constraints and should be treated as requirements until changed by a later accepted ADR:
-
-- self-hosted Kimai;
-- no Kimai public ingress required;
-- no mandatory Stripe webhook endpoint;
-- outbound HTTPS from Kimai/runtime to Stripe is acceptable;
-- outbound polling via cron/Jenkins/manual command is acceptable;
-- Kimai core patches/forks/vendor modifications are unacceptable;
-- use supported Kimai extension points;
-- manual Payment Link creation remains valid;
-- manual paid-state reconciliation remains valid;
-- plugin disable/remove must not make billing impossible;
-- customer payments already hosted by Stripe must continue even if Kimai is down;
-- ambiguous financial state must fail closed;
-- false negatives are preferable to false positives;
-- paid-to-unpaid state reversal is not automatic in v1;
-- refunds/disputes are surfaced for review;
-- cleanup is conservative;
-- paid orphans are never garbage;
-- two plugin responsibilities must remain internally separated even while packaged as one plugin.
-
-## Current Architecture
-
-Conceptually:
+Use one Kimai plugin with two independently disableable capabilities:
 
 ```text
-KimaiStripeConnector
+KimaiStripeConnectorBundle
 |
 +-- Common
-|   +-- configuration
-|   +-- Stripe client
-|   +-- instance identity
-|   +-- invoice identity
-|   +-- money/currency normalization
-|   +-- metadata contract
-|   +-- validation/errors
 |
 +-- PaymentLink
-|   +-- InvoicePreRenderEvent subscriber
-|   +-- find/recover exact Payment Link
-|   +-- create Payment Link when absent
-|   +-- safe idempotency behavior
-|   +-- InvoiceModel data injection
-|   +-- InvoiceModelHydrator
-|   +-- orphan cleanup command
 |
 +-- Reconciliation
-    +-- find candidate unpaid invoices
-    +-- correlate exact Payment Link
-    +-- inspect Checkout Session
-    +-- inspect PaymentIntent
-    +-- inspect Charge
-    +-- mark exact Kimai invoice paid
-    +-- report later anomalies
 ```
 
-The class names/namespaces above are conceptual and not yet frozen.
+See ADR-001 for package-level architecture.
 
-## Kimai 2.65.0 Source Findings Already Established
+The original large ADR-001 was intentionally broken into focused decisions:
 
-The design conversation inspected Kimai 2.65.0 source rather than relying only on high-level documentation.
+- ADR-005: private Kimai / outbound-only Stripe integration;
+- ADR-006: supported Kimai plugin extension seams;
+- ADR-007: Stripe Payment Links as the customer payment surface;
+- ADR-008: versioned Stripe metadata correlation;
+- ADR-009: conservative payment reconciliation;
+- ADR-010: conservative orphan cleanup; and
+- ADR-011: idempotent partial-failure recovery.
 
-Key findings that drove the architecture:
-
-- `InvoiceService::createInvoice()` dispatches `InvoicePreRenderEvent` before rendering.
-- Kimai's own duplicate invoice-number check happens after pre-render.
-- the invoice document is rendered before the final `Invoice` entity is created/saved;
-- `InvoiceCreatedEvent` occurs too late to insert a newly generated Stripe URL into the already-rendered invoice;
-- `InvoiceModel::isPreview()` exists and can be used to ensure invoice previews have zero Stripe mutations;
-- `InvoiceModel` supports options;
-- `InvoiceModelHydrator` can add data to `InvoiceModel::toArray()`;
-- the Twig invoice renderer exposes that array as `invoice`;
-- invoice entities have metadata support;
-- Kimai exposes paid state and payment date operations suitable for reconciliation.
-
-The intended supported seam is therefore:
+The full original research/rationale remains at:
 
 ```text
-InvoicePreRenderEvent
--> create/recover Payment Link
--> store link info on InvoiceModel
--> InvoiceModelHydrator exposes link
--> Twig template renders link
+doc/adr/rationale/ADR-001-proposed-rationale.md
 ```
 
-Do not replace this with a core patch merely because another approach feels easier.
+Use it for historical detail, not as a replacement for the focused current ADRs.
 
-Relevant upstream reference used during design:
+## Compatibility Contract
 
-- Kimai tag/version: `2.65.0`
-- <https://github.com/kimai/kimai/tree/2.65.0>
+ADR-004 currently establishes the initial implementation target:
 
-Important files are listed in ADR-001 and the mock record.
+```text
+Kimai:             2.65.0 baseline
+PHP:               >=8.2 <8.6
+Stripe PHP SDK:    ^21.3.1
+Payment methods:   card only initially
+Money:             integer Stripe minor units
+Currencies:        ordinary two-decimal currencies initially
+Metadata version:  1
+Credential model:  one least-privilege Stripe restricted key initially
+```
 
-## Stripe Design Already Established
+The connector initially follows the Stripe API version associated with the exact installed Stripe PHP SDK rather than independently overriding `Stripe-Version`.
 
-The intended customer-facing Stripe object is a **Payment Link**, not a Stripe Invoice and not a raw one-off Checkout Session URL.
+Dependency updates are compatibility-relevant behavioral changes and must receive the applicable tests under ADR-003.
 
-Reasons:
+## Metadata Contract
 
-- Kimai remains invoice authority;
-- Stripe remains payment authority;
-- Payment Link gives a durable hosted payment URL;
-- no Stripe Invoicing product/fee semantics are needed merely to collect payment;
-- metadata can correlate Stripe objects to Kimai invoices;
-- Payment Links can be deactivated later;
-- Payment Links can be limited to one completed Checkout Session.
-
-A subtle point already discovered:
-
-> A completed Checkout Session is not necessarily proof that payment is final/successful.
-
-Asynchronous payment methods can complete Checkout while payment remains processing.  The one-completed-session restriction is a duplicate-payment safety control, not reconciliation proof.
-
-The first implementation should therefore either support a deliberately tested subset of payment methods (cards would be the simplest initial target) or explicitly model/test asynchronous-method behavior before claiming support.
-
-## Proposed Metadata Contract
-
-The final keys are not yet frozen, but the architecture requires a versioned correlation contract.
-
-Current proposed shape:
+Version 1 requires:
 
 ```text
 integration=kimai-stripe-connector
@@ -214,497 +144,290 @@ integration_version=1
 kimai_instance=<stable instance UUID>
 invoice_number=<Kimai invoice number>
 invoice_amount=<integer minor currency units>
-invoice_currency=<normalized lowercase currency>
+invoice_currency=<lowercase currency code>
 ```
 
-Potential additional fields:
+The contract is stored on the Payment Link and supplied as PaymentIntent metadata so correlation can be checked across the Stripe object chain without a connector-owned database.
+
+Unknown metadata versions fail closed.
+
+The instance UUID must remain stable across container recreation, restarts, plugin upgrades, and scheduler changes.
+
+## Network / Exposure Contract
+
+Kimai remains private.
+
+The connector does not require:
+
+- a public Kimai route;
+- a Stripe webhook endpoint;
+- public NAT/firewall exposure; or
+- a customer payment portal hosted by Kimai.
+
+Stripe-hosted Payment Links/Checkout are the public payment surface.
+
+Reconciliation is an externally schedulable repair operation.  Missing a run may temporarily leave Kimai stale, but later reconciliation should repair it.
+
+## Payment Reconciliation Policy
+
+False negatives are preferable to false positives.
+
+The initial automatic state direction is:
 
 ```text
-kimai_customer_id=<Kimai customer ID>
-created_by=kimai-stripe-connector
-```
-
-The stable Kimai instance identity matters because two Kimai installations can both have invoice `INV-0042` while sharing a Stripe account.
-
-The instance identity must survive:
-
-- container recreation;
-- plugin upgrades;
-- app restarts.
-
-Changing it later is effectively a metadata namespace migration.
-
-## Money Handling
-
-Do not use binary floating-point arithmetic as the authoritative Stripe amount representation.
-
-The pre-implementation mock included a 100,000-cent conversion sweep for USD-like values and reported no mismatch, but that does not establish a production money model.
-
-Implementation needs to decide deliberately how to support:
-
-- ordinary two-decimal currencies;
-- zero-decimal currencies;
-- any unusual supported minor-unit currencies;
-- rounding/conversion from whatever Kimai exposes internally.
-
-If v1 intentionally supports only a subset of currencies, document that clearly rather than accidentally assuming two decimals everywhere.
-
-## Payment Link Creation/Recovery Rules
-
-Desired behavior:
-
-```text
-invoice preview
--> zero Stripe mutation
-```
-
-```text
-real invoice + no existing exact link
--> create one
-```
-
-```text
-real invoice + exactly one compatible existing link
--> reuse it
-```
-
-```text
-same invoice identity + different amount/currency
--> conflict
--> do not mutate/reuse silently
--> do not blindly create competing payment surface
-```
-
-```text
-multiple ambiguous candidate links
--> fail closed
--> manual review
-```
-
-The link should be fixed-amount, fixed-currency, quantity one, no customer-adjustable quantity, and no pay-what-you-want behavior.
-
-## Idempotency and Partial Failure
-
-The design explicitly assumes this can happen:
-
-```text
-connector sends create request
--> Stripe creates Payment Link
--> response is lost
--> connector observes timeout
-```
-
-A retry must not blindly create another payment surface.
-
-Immediate retry should use Stripe idempotency where appropriate.
-
-Longer-term recovery should use the stable metadata contract because Stripe idempotency retention is finite and external to the connector.
-
-Another unavoidable sequence is:
-
-```text
-Stripe link created
--> Kimai render/persistence fails
--> no completed Kimai invoice
--> Stripe link remains
-```
-
-This is an accepted partial-failure condition.
-
-An exact later retry should rediscover/reuse the link if identity, amount, and currency still match.
-
-If the same invoice number is retried with changed financial meaning, automatic behavior should stop and require a human decision.
-
-## Orphan Cleanup
-
-Expected future CLI command, final name not frozen:
-
-```text
-bin/console kimai:stripe:cleanup
-```
-
-Conceptual cleanup rules:
-
-```text
-managed link + Kimai invoice exists
--> keep
-
-managed link + Kimai unavailable/uncertain
--> keep
-
-managed link + no invoice + recent
--> keep
-
-managed link + no invoice + successful payment evidence
--> keep + alert/manual review
-
-managed link + no invoice + no payment + older than grace
--> deactivate
-```
-
-The original conversation considered a seven-day grace period as a reasonable candidate, but this is not yet a final decision.
-
-Do **not** deactivate a valid link merely because it is old.  A legitimate unpaid invoice may remain open for months.
-
-The key criterion is "no Kimai invoice," not "old link."
-
-Cleanup is outside the correctness path.  If the cleanup job does not run, the expected failure is Stripe clutter, not broken billing.
-
-## Reconciliation
-
-Expected future CLI command, final name not frozen:
-
-```text
-bin/console kimai:stripe:reconcile
-```
-
-The reconciler should be suitable for cron, Jenkins, systemd timer, or manual execution.
-
-The design prefers a repair-style process:
-
-```text
-observe current Kimai state
-+ observe current Stripe state
--> derive whether one safe monotonic change exists
--> apply it
-```
-
-This makes missed runs recoverable.
-
-### Minimum Identity Expectations
-
-Never reconcile by amount alone, customer alone, date proximity, or invoice number alone.
-
-Expected identity is approximately:
-
-```text
-connector namespace
-+ metadata version
-+ Kimai instance UUID
-+ invoice number
-+ amount
-+ currency
-```
-
-### Evidence Expectations
-
-The pre-implementation model conservatively checked multiple Stripe layers:
-
-- Payment Link;
-- Checkout Session;
-- PaymentIntent;
-- Charge.
-
-The exact production checks may depend on the supported payment methods/API version, but the principle is fixed: automatic paid state requires positive, unambiguous, mutually consistent evidence.
-
-No automatic paid transition for:
-
-- no session;
-- open checkout;
-- completed checkout with unpaid/processing payment;
-- failed/canceled/processing PaymentIntent;
-- wrong amount;
-- wrong currency;
-- wrong metadata;
-- wrong Kimai instance;
-- partial payment;
-- uncaptured charge where capture matters;
-- refund before initial reconciliation;
-- dispute before initial reconciliation;
-- multiple ambiguous candidates.
-
-### Automatic State Direction
-
-Initial automatic transition:
-
-```text
-Kimai not-paid
-+
-strong exact Stripe evidence
+Kimai not paid
++ exact identity
++ exact amount
++ exact currency
++ strong mutually consistent Stripe payment evidence
 -> Kimai paid
 ```
 
-Do not automatically perform the reverse because of a later refund/dispute.
+Ambiguity means no automatic mutation.
 
-A refund/dispute after an invoice was marked paid is an accounting event requiring human review, not proof that the historical payment never happened.
+A completed Checkout Session alone is not universal proof of final successful payment.
 
-## Historical Mock Evidence
+Later refunds or disputes do not automatically rewrite a historically paid Kimai invoice to unpaid/canceled.  They are surfaced for human/accounting review.
 
-The design conversation reported:
+## Partial Failure / Recovery
+
+Stripe and Kimai cannot participate in one atomic transaction.
+
+Expected failures include:
 
 ```text
-89 behavioral/adversarial cases passed
-5 HTTP/network/concurrency cases passed
-9 stateless correlation/recovery cases passed
-------------------------------------------
-103 total passed
+Stripe creates link
+-> response is lost
+-> connector sees timeout
 ```
 
-Additional probes included:
+and:
 
-- 100,000 cent-value money conversions;
-- 10,000 unrelated Payment Links plus one exact intended match;
-- 20 simultaneous creation attempts converging on one logical Payment Link.
+```text
+Stripe creates link
+-> Kimai rendering/persistence fails
+-> Stripe orphan remains
+```
 
-The full surviving scenario reconstruction is in:
+The design therefore relies on:
 
-`doc/testing/preimplementation-mock-exercise.md`
-
-Critical caveat: these were conversational/pre-repository mocks.  The original harness and raw output are not committed.  Do not claim this repository has 103 executable tests.
-
-The next implementation session should convert those cases into actual repository tests and map them back to the proposed IDs in the mock document.
-
-## Acceptance Gate for ADR-001
-
-ADR-001 includes a concrete validation list before it should become Accepted.  The important idea is that a real plugin must be installed against a test Kimai runtime and exercised against Stripe test mode.
-
-The handoff session should not mark ADR-001 Accepted merely because code compiles.
-
-End-to-end evidence should include at least:
-
-- plugin installation;
-- clean Kimai startup;
-- preview suppression;
-- real Payment Link creation;
-- invoice rendering with correct URL;
-- orphan creation and recovery;
+- Stripe idempotency for immediate retries where appropriate;
+- versioned metadata for durable rediscovery;
+- exact compatible-object reuse;
 - financial conflict detection;
-- Stripe test-mode successful payment;
-- exact reconciliation;
-- reconciliation idempotency;
-- cleanup safety;
-- plugin disable/manual fallback;
-- secret/log review.
+- fail-closed behavior on multiple/ambiguous candidates; and
+- conservative orphan cleanup.
 
-## Reference Deployment Context
+Do not introduce a connector-owned transaction ledger unless evidence demonstrates that metadata + Kimai state are insufficient and a later ADR approves the change.
 
-The original Kimai instance used during product evaluation was:
+## Cleanup Policy
 
-- Kimai `2.65.0`;
-- Dockerized/self-hosted;
-- external MySQL/MariaDB;
-- behind Traefik;
-- Apache inside the Kimai container listened on port `8001` in that deployment;
-- `TRUSTED_HOSTS` configuration was required;
-- the Kimai Docker entrypoint used shell tracing (`set -x`) and could expose environment values in logs;
-- plugin deployment behavior observed during evaluation copied bundles into `var/plugins` and required cache/application lifecycle handling.
+Cleanup is not part of payment correctness.
 
-These are **reference-environment observations**, not necessarily product requirements.
+A link is eligible for automatic deactivation only when the connector can prove it is:
 
-Do not hard-code:
+- connector-managed;
+- in the current instance namespace;
+- unmatched to a Kimai invoice after a successful Kimai query;
+- outside the configured grace period;
+- unpaid; and
+- unambiguous.
 
-- Docker Swarm;
-- Traefik;
-- NFS;
-- a specific database host;
-- port 8001;
-- Jenkins;
-- the original private hostname/network layout
+Paid orphans are accounting exceptions, not garbage.
 
-into a general OSS plugin unless Kimai itself requires a particular behavior.
+Old valid invoice links remain valid merely because they are old.
 
-The original infrastructure used Docker Swarm, Traefik, central DB services, and NFS-backed storage.  Those facts are useful for dogfooding but should not narrow the plugin unnecessarily.
+## Operator Result Vocabulary
 
-## Deployment/Operational Preferences Learned During Evaluation
-
-The original operator strongly prefers:
-
-- supported plugin mechanisms rather than core changes;
-- conservative behavior;
-- minimal custom image requirements;
-- boring upgrades;
-- small release artifacts;
-- clear rollback/disable steps;
-- avoiding complex Jenkins/git-pull/custom-image deployment choreography where a normal plugin release can work;
-- pull/poll integration instead of inbound webhooks when practical.
-
-If a proposed packaging solution makes plugin installation substantially more complex than Kimai's normal plugin model, revisit it.
-
-## One Plugin Versus Two
-
-Two plugins were seriously considered:
+ADR-013 defines:
 
 ```text
-PaymentLinksBundle
-ReconciliationBundle
+SUCCESS
+NO_CHANGE
+RETRYABLE
+CONFIGURATION_ERROR
+CONFLICT
+MANUAL_REVIEW_REQUIRED
+INTERNAL_ERROR
 ```
 
-Advantages:
+CLI commands, structured logs, tests, and runbooks should share these meanings.
 
-- package-level fault isolation;
-- independent removal;
-- potentially separate Stripe restricted keys;
-- independent release cadence.
+## Testing Contract
 
-Downsides:
+ADR-003 requires appropriate automated tests for executable behavior changes.
 
-- duplicated/shared identity/money/metadata logic;
-- two Kimai compatibility surfaces;
-- two versions/releases;
-- possible metadata-contract drift;
-- temptation to introduce a third shared library.
+Examples requiring test changes include:
 
-The current direction is one package with internal separation.
+- Stripe API calls or request parameters;
+- metadata changes;
+- money conversion;
+- Kimai event integration;
+- configuration semantics;
+- reconciliation/cleanup rules;
+- retry/exception behavior; and
+- bug fixes.
 
-Do not treat the two-plugin idea as rejected forever.  ADR-001 lists conditions that should trigger reconsideration.
+Documentation-only, comment-only, typo, or formatting changes do not require artificial unit tests.
 
-## Licensing and OSS Status
+Use [`testing/test-matrix.md`](testing/test-matrix.md) to assign documented `CFG-*`, `PL-*`, `MNY-*`, `REC-*`, `CLN-*`, `NET-*`, `CON-*`, `KIM-*`, `STR-*`, and `THR-*` scenarios to the correct execution layer.
 
-The project owner expressed a preference for OSS.
+## Disposable Kimai E2E
 
-However, the final license has **not been decided**.
+The executable harness is:
 
-The repository template currently contains:
+```text
+tests/e2e/compose.yaml
+tests/e2e/run.sh
+```
 
-- `LICENSE` = CC0 1.0 Universal;
-- `CONTRIBUTING.md` language stating contributions are CC0;
-- `README.md` template text claiming CC0.
+It is based closely on Kimai's official Docker Compose model and pins:
 
-Those are scaffold artifacts, not a documented final plugin-license decision.
+```text
+kimai/kimai2:2.65.0
+```
 
-A prior design conversation considered AGPL-3.0-or-later as a possible conservative choice because Kimai itself is AGPL, but no final legal/license conclusion was reached.
+Every run gets a unique Compose project and fresh named volumes.  The shell harness installs the checked-out plugin into the disposable plugin volume, reloads Kimai, verifies the bundle, removes it, reloads again, and always executes cleanup via an EXIT/INT/TERM trap.
 
-Do not publish or solicit implementation contributions under contradictory licensing assumptions without resolving this first.
+Cleanup includes:
 
-A dedicated licensing ADR or explicit project-owner decision is appropriate before public release.
+```text
+docker compose down --volumes --remove-orphans
+```
 
-## Repository Template Residue to Review
+No Kimai database/application state is intentionally reused between runs.
 
-The repository was created from a generic template.  The next session should not assume all existing files describe this project accurately.
+See [`../tests/e2e/README.md`](../tests/e2e/README.md) and [`testing/e2e-stripe-sandbox.md`](testing/e2e-stripe-sandbox.md).
 
-Known residue/issues include:
+Real Stripe sandbox E2E will reuse this disposable Kimai environment.  Stripe-side test objects need separate run-specific identification and safe cleanup because Stripe is external to Docker.
 
-- `README.md` still describes itself as a template and references `adr-tools` rather than the newer `adrctl` preference used elsewhere by the repository owner;
-- README path text mentions `doc/adrs/...` while `.adr-dir` actually points to `doc/adr`;
-- `SUPPORT.md` refers to "this action" and links to a different repository (`publish_container`);
-- `CONTRIBUTING.md` refers to `LICENSE.md`, while the file present is `LICENSE`;
-- `CONTRIBUTING.md` and `LICENSE` currently encode CC0 despite the connector license being unresolved;
-- `SECURITY.md` describes a generic personal project and may need connector-specific disclosure/support wording;
-- `cspell.json` contains unrelated words from other projects and lacks expected Kimai/Stripe vocabulary;
-- CodeQL currently analyzes GitHub Actions only, not PHP, because no PHP code existed when the template was copied;
-- Dependabot currently tracks GitHub Actions only; Composer support should be added when `composer.json` exists;
-- `.gitignore` is a very broad generic template and should eventually gain PHP/Composer/Kimai-specific entries where needed;
-- semver/release automation may create releases immediately on `main` pushes and should be reviewed before the first real public release;
-- MegaLinter auto-fix behavior and signing-secret assumptions should be reviewed before relying on it;
-- issue-branch automation depends on a `PAT` secret;
-- Scorecard/private-repository behavior may need adjustment before public release.
+## Plugin Packaging
 
-Do not clean all template residue blindly in the same implementation change.  Preserve working project conventions where useful, and change artifacts deliberately.
+ADR-012 establishes a self-contained Kimai plugin model.
 
-## Existing Repository Engineering Conventions
+Install path:
 
-The scaffold already establishes several conventions that should generally be respected unless deliberately changed:
+```text
+var/plugins/KimaiStripeConnectorBundle/
+```
 
-- `.editorconfig` uses spaces, two-space indentation for most files, LF, UTF-8;
-- Markdown lint configuration allows long lines and relaxes several formatting rules;
-- YAML lint extends defaults with a high line-length limit;
-- pre-commit checks whitespace, EOF/newlines, YAML/JSON/XML, AWS credentials, Gitleaks, and prohibits committed `.env` files;
-- MegaLinter security flavor is configured;
-- GitHub Actions are SHA-pinned;
-- CodeQL and OpenSSF Scorecard workflows exist;
-- Conventional Commits drive automatic semver/release behavior;
-- Dependabot groups minor/patch updates;
-- CODEOWNERS assigns the repository to `wesley-dean`;
-- ADR directory is `doc/adr`.
+Namespace:
 
-When PHP/Composer code is introduced, update the repository automation deliberately to include the new ecosystem.
+```text
+KimaiPlugin\KimaiStripeConnectorBundle\
+```
 
-## Security Expectations for Implementation
+Kimai does not automatically install third-party Composer dependencies declared by an in-repository plugin.  The connector therefore carries a plugin-local `vendor/` tree in release artifacts and loads its own Composer autoloader from the bundle entrypoint.
 
-The plugin will hold or access Stripe API credentials and can mark invoices paid.
+Do not modify Kimai's root `composer.json`, `composer.lock`, `vendor/`, or `config/bundles.php` as part of normal installation.
 
-Implementation should therefore:
+The source repository does not commit `vendor/`.
 
-- prefer restricted Stripe keys where practical;
-- document exact required permissions;
-- avoid full account keys if unnecessary;
-- never log keys;
-- never render keys into invoices/Twig;
-- never place keys in Stripe metadata;
-- avoid exception/debug output that contains secrets;
-- test log behavior;
-- account for the reference Kimai entrypoint's `set -x` behavior;
-- retain no card/payment credential data in Kimai;
-- keep Stripe-hosted checkout as the PCI-sensitive surface;
-- add appropriate secret scanning and PHP static analysis as code appears.
+`composer.lock` is intended to be committed for reproducible development/release dependency resolution.  If it is absent in the current branch, generating and committing it is implementation-preparation work rather than a change to product architecture.
 
-Potential separate credentials for link mutation versus reconciliation reads remain an open design option.
+## Documentation Contract
 
-## Recommended Next Work
+ADR-002 and [`documentation.md`](documentation.md) establish PHP Doxygen/PHPDoc standards.
 
-A sensible sequence for the next chat/session is:
+Generated reference documentation is:
 
-1. Read ADR-001 and the mock document fully.
-2. Review current Kimai plugin-development documentation and Kimai 2.65/current source before generating a skeleton.
-3. Resolve the license question before public implementation contributions or release.
-4. Decide the minimum supported Kimai/PHP versions and Composer/Stripe SDK approach.
-5. Decide the first supported Stripe payment methods, likely beginning with cards unless there is a reason to take on asynchronous-method complexity immediately.
-6. Define/freeze metadata contract v1 and money representation.
-7. Create the smallest valid Kimai plugin skeleton using supported mechanisms.
-8. Add executable tests for identity, money, preview suppression, and Payment Link resolution before adding full reconciliation.
-9. Implement Payment Link creation/recovery/hydration.
-10. Exercise against a real Kimai test instance and Stripe test mode.
-11. Implement reconciliation after link-generation behavior is stable.
-12. Implement cleanup after orphan behavior is demonstrated.
-13. Update CodeQL/Dependabot/MegaLinter/README/install docs for PHP/Composer.
-14. Revisit ADR-001 status only after the acceptance evidence exists.
+```text
+doc/reference/
+```
 
-This sequence is a recommendation, not a new architectural decision.  Another sequence is acceptable if it preserves the same safety boundaries.
+and is intentionally ignored by Git.
 
-## Questions Still Open
+Normal documentation commands:
 
-Important unresolved questions include:
+```text
+make docs
+make docs-clean
+```
 
-- final OSS license;
-- exact Kimai plugin package structure;
-- minimum supported Kimai version;
-- PHP version range;
-- Stripe PHP SDK version;
-- Stripe API-version policy;
-- whether to pin `Stripe-Version`;
-- whether Payment Link `price_data` should be used;
-- supported currencies and money library/representation;
-- initial payment-method set;
-- exact Stripe restricted-key permissions;
-- one versus separate Stripe credentials;
-- metadata key names and versioning;
-- whether Kimai metadata should cache Payment Link IDs;
-- whether Stripe-side metadata lookup is sufficiently efficient without local indexing;
-- cleanup grace period;
-- payment-date timestamp source;
-- treatment of manually paid invoices with still-active links;
-- CLI output/exit code/JSON/dry-run conventions;
-- how refunds/disputes are surfaced;
-- compatibility matrix and release-support policy;
-- public Kimai marketplace submission/support model.
+Doxygen warnings are failures.
 
-Do not silently choose answers to these questions when they materially affect compatibility, security, or accounting semantics.  Record important decisions.
+## Configuration Contract
 
-## Scope Exclusions to Preserve
+See [`configuration.md`](configuration.md).
 
-Absent a later ADR, do not expand v1 into:
+Primary namespace:
 
-- recurring billing;
-- subscriptions;
-- tax engine;
-- tax filing;
-- accounting ledger;
-- generalized accounts receivable;
-- partial-payment accounting;
-- installment plans;
-- dunning/late fees;
-- automated refund accounting;
-- automated disputes/chargebacks;
-- Stripe dashboard clone;
-- card collection inside Kimai;
-- public Kimai payment portal;
-- mandatory webhook infrastructure;
-- generic multi-processor abstraction.
+```text
+KIMAI_STRIPE_CONNECTOR_*
+```
 
-## How to Resume in Another ChatGPT Chat
+Environment variables are primary.  File-backed secret injection is preferred for production/container secrets.  `.env` support is tertiary development/test convenience, not an independent configuration system.
 
-A useful first prompt to another session is:
+## Reference Hosting Context
 
-> Please inspect `wesley-dean/kimai-stripe-connector` on GitHub.  Start by reading `AGENTS.md`, `doc/project-handoff.md`, ADR-000, ADR-001, and `doc/testing/preimplementation-mock-exercise.md`.  Treat the repository as the source of truth for prior design context.  Do not assume the historical 103 mocks are executable repository tests.  Continue from the documented open questions and current proposed one-plugin architecture.
+See [`reference-hosting-environment.md`](reference-hosting-environment.md).
 
-The new session should not need access to the conversation that preceded this repository documentation.
+The dogfooding environment includes container orchestration, Traefik, external SQL services, network-backed storage, scheduling, and private LAN/VPN access.  These are operational context, not hard dependencies of the OSS/plugin design.
+
+Do not hard-code site-specific hostnames, addresses, domains, Swarm services, NFS paths, Jenkins job names, or Traefik labels into connector logic.
+
+## Repository Quality Gates
+
+MegaLinter is a blocking quality gate.
+
+Required policy:
+
+```text
+DISABLE_ERRORS: false
+APPLY_FIXES: false
+```
+
+A green workflow status is not sufficient if the report contains warnings.  Completion requires zero reported MegaLinter errors and zero reported MegaLinter warnings.
+
+The PHP workflow runs unit/static-analysis checks across the initial PHP compatibility range.
+
+The Kimai E2E workflow exercises the real disposable plugin lifecycle.
+
+The Documentation workflow exercises Doxygen generation.
+
+The repository retains Dependabot, semver/release automation, CONTRIBUTING, SUPPORT, and the broad `.gitignore`.  Dependabot is extended for the Composer ecosystem.  The cspell configuration file is `.cspell.json`.
+
+## License Status
+
+The repository is currently private.  The inherited CC0 files remain present and the public/open-source release license is not considered an immediate implementation blocker.
+
+Do not make a public release or invite public contributions while assuming the final software-license question has disappeared.  Resolve it deliberately before the repository becomes public or release/contribution circumstances make the distinction material.
+
+## Manual Fallback
+
+The connector must never become necessary to continue billing:
+
+```text
+track time in Kimai
+-> generate invoice
+-> create Stripe Payment Link manually
+-> include URL
+-> send invoice
+-> verify payment in Stripe
+-> mark invoice paid manually
+```
+
+This is a permanent supported operational fallback.
+
+## Immediate Next Work
+
+After the implementation-preparation branch is accepted and clean, the next session should:
+
+1. ensure `composer.lock` is generated and committed;
+2. verify all PHP, MegaLinter, Documentation, and Kimai E2E workflows complete cleanly;
+3. implement configuration parsing and validation;
+4. implement stable instance identity;
+5. implement exact decimal-to-minor-unit money handling for the accepted initial currency scope;
+6. implement metadata value objects/validation;
+7. implement safe Stripe-client construction and app identification;
+8. add the corresponding `CFG-*`, `MNY-*`, metadata, and threat-model tests;
+9. only then begin real Payment Link mutation behavior; and
+10. add real Stripe sandbox E2E only when an authorized sandbox key is available.
+
+Do not skip directly from the inert bundle skeleton to invoice paid-state mutation.
+
+## Handoff Rule
+
+Update this document whenever a new session would otherwise need conversational history to understand current implementation state, important failed experiments, compatibility findings, active PRs/branches, or the next safe work sequence.
+
+Keep it current rather than using it as an append-only diary.  Historical rationale belongs in ADRs, Git history, and focused research/test documents.

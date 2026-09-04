@@ -10,7 +10,7 @@ $finder = PhpCsFixer\Finder::create()
     ]);
 
 return (new PhpCsFixer\Config())
-    ->setRiskyAllowed(false)
+    ->setRiskyAllowed(true)
     ->setRules([
         '@PSR12' => true,
         'declare_strict_types' => true,

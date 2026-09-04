@@ -19,6 +19,7 @@ DISABLE_LINTERS:
     BASH_EXEC,
     SPELL_LYCHEE,
     PHP_PSALM,
+    EDITORCONFIG_EDITORCONFIG_CHECKER,
   ]
 
 # Scan only new / updated files where the selected linter supports that mode.

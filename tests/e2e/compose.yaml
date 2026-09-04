@@ -44,6 +44,20 @@ services:
     volumes:
       - data:/opt/kimai/var/data
       - plugins:/opt/kimai/var/plugins
+    # Kimai's image healthcheck is correct for steady-state operation, but a
+    # pristine instance performs migrations and first-run initialization before
+    # Apache is reliably ready.  Preserve the upstream probe cadence while giving
+    # that initialization a deliberately generous grace period.  This mirrors the
+    # behavior needed in the reference deployment and prevents the disposable E2E
+    # environment from consuming its retry budget during normal startup work.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -f http://127.0.0.1:8001 || exit 1
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 30m
 
 volumes:
   data:

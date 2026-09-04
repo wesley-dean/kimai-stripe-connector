@@ -55,7 +55,7 @@ final class ReconciliationServiceTest extends TestCase
         self::assertTrue($outcomes[0]->wouldChange());
         self::assertTrue($outcomes[0]->changed());
         self::assertSame(['INV-0042'], $store->markPaidCalls);
-        self::assertTrue($store->findByInvoiceNumber('INV-0042')?->isPaid());
+        self::assertTrue($store->findByInvoiceNumber($this->instanceId(), 'INV-0042')?->isPaid());
     }
 
     public function testDryRunReportsWouldChangeWithoutPersistence(): void
@@ -76,7 +76,7 @@ final class ReconciliationServiceTest extends TestCase
         self::assertTrue($outcomes[0]->wouldChange());
         self::assertFalse($outcomes[0]->changed());
         self::assertSame([], $store->markPaidCalls);
-        self::assertFalse($store->findByInvoiceNumber('INV-0042')?->isPaid());
+        self::assertFalse($store->findByInvoiceNumber($this->instanceId(), 'INV-0042')?->isPaid());
     }
 
     public function testPersistenceFailureNeverReportsFalseSuccess(): void
@@ -102,7 +102,7 @@ final class ReconciliationServiceTest extends TestCase
         self::assertSame(OperatorResult::RETRYABLE, $outcomes[0]->result());
         self::assertTrue($outcomes[0]->wouldChange());
         self::assertFalse($outcomes[0]->changed());
-        self::assertFalse($store->findByInvoiceNumber('INV-0042')?->isPaid());
+        self::assertFalse($store->findByInvoiceNumber($this->instanceId(), 'INV-0042')?->isPaid());
     }
 
     public function testSuccessfulPaidOrphanRequiresManualReview(): void
@@ -197,7 +197,7 @@ final class ReconciliationServiceTest extends TestCase
 
         self::assertSame(OperatorResult::NO_CHANGE, $outcomes[0]->result());
         self::assertSame([], $store->markPaidCalls);
-        self::assertTrue($store->findByInvoiceNumber('INV-0042')?->isPaid());
+        self::assertTrue($store->findByInvoiceNumber($this->instanceId(), 'INV-0042')?->isPaid());
     }
 
     public function testInitialPaymentLinkDiscoveryFailureStopsRunSafely(): void

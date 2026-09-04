@@ -95,15 +95,15 @@ Machine-readable output, if provided, SHALL use stable category identifiers rath
 
 The first reconciliation command establishes the following process exit-code contract:
 
-| Result category | Exit code |
-| --- | ---: |
-| `SUCCESS` | 0 |
-| `NO_CHANGE` | 0 |
-| `RETRYABLE` | 10 |
-| `CONFIGURATION_ERROR` | 20 |
-| `CONFLICT` | 30 |
-| `MANUAL_REVIEW_REQUIRED` | 40 |
-| `INTERNAL_ERROR` | 50 |
+| Result category          | Exit code |
+|--------------------------|----------:|
+| `SUCCESS`                |         0 |
+| `NO_CHANGE`              |         0 |
+| `RETRYABLE`              |        10 |
+| `CONFIGURATION_ERROR`    |        20 |
+| `CONFLICT`               |        30 |
+| `MANUAL_REVIEW_REQUIRED` |        40 |
+| `INTERNAL_ERROR`         |        50 |
 
 These values SHALL remain stable for machine consumers unless a later ADR deliberately changes the contract.
 

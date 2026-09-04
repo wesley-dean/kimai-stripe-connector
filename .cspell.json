@@ -1,0 +1,32 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "ADR",
+    "ADRs",
+    "Checkout",
+    "CodeQL",
+    "Doxygen",
+    "Gitleaks",
+    "Jenkins",
+    "Kimai",
+    "MegaLinter",
+    "NFS",
+    "PaymentIntent",
+    "PaymentIntents",
+    "PHPDoc",
+    "PHPStan",
+    "PHPUnit",
+    "Stripe",
+    "Symfony",
+    "Traefik",
+    "TruffleHog",
+    "Twig",
+    "autoload",
+    "autoloader",
+    "autowire",
+    "idempotency",
+    "phpcs",
+    "wesleydean"
+  ]
+}

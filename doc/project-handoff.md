@@ -46,9 +46,9 @@ with draft PR #11:
 docs: add phase 6 operator runbook
 ```
 
-PR #11 is documentation-only operationalization of already merged behavior.  It
-must not broaden Stripe permissions, connector mutation authority, supported
-compatibility, or accounting automation.
+PR #11 adds operator guidance for already merged behavior.  It must not broaden
+Stripe permissions, connector mutation authority, supported compatibility, or
+accounting automation.
 
 All numbered ADRs 000 through 013 are Accepted.  ADR-009 governs reconciliation,
 ADR-010 governs cleanup, ADR-011 governs partial-failure/idempotency behavior, and
@@ -136,7 +136,7 @@ Reconciliation:
 - re-reads Kimai immediately before persistence;
 - uses Stripe Charge `created` as the source payment timestamp;
 - persists through Kimai `InvoiceService::saveInvoice()`;
-- treats already-paid state idempotently; and
+- treats already-paid state as an idempotent no-op; and
 - never automatically reverses historical paid state for later refund/dispute.
 
 There is no internal distributed reconciliation lock.  Schedulers SHOULD avoid

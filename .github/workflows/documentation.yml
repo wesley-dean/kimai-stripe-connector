@@ -1,0 +1,41 @@
+---
+name: Documentation
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  doxygen:
+    name: Generate Doxygen reference
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install Doxygen
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes doxygen
+
+      - name: Generate reference documentation
+        run: make docs
+
+      - name: Verify generated reference output is ignored
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -f doc/reference/index.html ]]; then
+            git check-ignore -q doc/reference/index.html
+            test -z "$(git status --porcelain --untracked-files=all -- doc/reference)"
+          fi

@@ -31,7 +31,7 @@ local.properties
 *.launch
 
 # PyDev specific (Python IDE for Eclipse)
-*.pydevproject
+.pydevproject
 
 # CDT-specific (C/C++ Development Tooling)
 .cproject
@@ -360,3 +360,6 @@ $RECYCLE.BIN/
 
 # SonarScanner
 .scannerwork
+
+# Generated Doxygen reference documentation
+/doc/reference/

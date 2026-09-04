@@ -21,3 +21,11 @@ Update this index whenever an ADR is added, accepted, superseded, deprecated, or
 **Decision:** The connector SHALL initially be implemented and distributed as one Kimai plugin containing two independently disableable capabilities: Stripe Payment Link generation/recovery with invoice-rendering support, and asynchronous Stripe-to-Kimai payment reconciliation.  The responsibilities remain internally separated, Kimai remains authoritative for invoices, Stripe remains authoritative for payment movement, and ambiguous financial evidence must fail closed rather than change Kimai automatically.  The design preserves manual billing/reconciliation as a permanent fallback, avoids mandatory public Kimai ingress or Stripe webhooks, and favors recoverable metadata/idempotency over pretending Stripe and Kimai can participate in one atomic transaction.  Splitting the capabilities into two plugins remains a valid future option if lifecycle, dependency, security, user, or maintenance evidence eventually justifies the additional packaging surface.
 
 **Source:** [`doc/adr/ADR-001-single-plugin-architecture.md`](adr/ADR-001-single-plugin-architecture.md)
+
+## ADR-002: Use Documentation-First PHP Source Comments and Generated Reference Docs
+
+**Status:** Proposed
+
+**Decision:** PHP implementation code SHALL follow a documentation-first, Doxygen-compatible PHPDoc standard adapted from the `bootstrap` and `adrctl` repositories.  Source comments should document implementation contracts, invariants, side effects, failures, ownership, and security-sensitive reasoning; generated Doxygen HTML lives under ignored `doc/reference/` build output rather than becoming maintained source.  Repository documents retain distinct authority: ADRs explain durable architectural rationale, the behavioral specification describes current public behavior once established, source comments describe implementation contracts, and Doxygen provides a generated browsable reference surface.
+
+**Source:** [`doc/adr/ADR-002-documentation-first-php-comments-and-generated-reference-docs.md`](adr/ADR-002-documentation-first-php-comments-and-generated-reference-docs.md)

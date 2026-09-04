@@ -24,8 +24,9 @@ use KimaiPlugin\KimaiStripeConnectorBundle\Reconciliation\ReconciliationStripeGa
  * @details
  * Cleanup first proves that Kimai has no matching invoice.  Stripe child evidence
  * is then inspected and a pure plan is produced.  Before any destructive update,
- * Kimai and Stripe child evidence are queried again.  The mutation adapter performs
- * a final Payment Link retrieve/compare before setting active=false.
+ * Kimai, managed Payment Links, and Stripe child evidence are queried again.  The
+ * mutation adapter performs a final Payment Link retrieve/compare before setting
+ * active=false.
  */
 final readonly class CleanupService
 {
@@ -143,7 +144,24 @@ final readonly class CleanupService
             }
 
             try {
-                $currentCandidates = $this->loadCandidates($paymentLinks);
+                $currentGroups = $this->groupByInvoiceNumber(
+                    $this->stripeReader->listManagedPaymentLinks($instanceId),
+                );
+                $currentPaymentLinks = $currentGroups[$invoiceNumber] ?? [];
+
+                if ($currentPaymentLinks === []) {
+                    $outcomes[] = new CleanupItemOutcome(
+                        $invoiceNumber,
+                        $paymentLinkId,
+                        OperatorResult::NO_CHANGE,
+                        false,
+                        false,
+                        'Managed Payment Link evidence changed before cleanup; no Stripe mutation was attempted.',
+                    );
+                    continue;
+                }
+
+                $currentCandidates = $this->loadCandidates($currentPaymentLinks);
             } catch (ReconciliationGatewayException $exception) {
                 $outcomes[] = new CleanupItemOutcome(
                     $invoiceNumber,
@@ -156,11 +174,17 @@ final readonly class CleanupService
                 continue;
             }
 
-            $currentPlan = $this->planner->plan(null, $paymentLinks, $currentCandidates, $now, $graceDays);
+            $currentPlan = $this->planner->plan(
+                null,
+                $currentPaymentLinks,
+                $currentCandidates,
+                $now,
+                $graceDays,
+            );
             if (!$currentPlan->shouldDeactivate()) {
                 $outcomes[] = new CleanupItemOutcome(
                     $invoiceNumber,
-                    $paymentLinkId,
+                    count($currentPaymentLinks) === 1 ? $currentPaymentLinks[0]->id() : null,
                     $currentPlan->result(),
                     false,
                     false,
@@ -169,12 +193,13 @@ final readonly class CleanupService
                 continue;
             }
 
+            $currentPaymentLink = $currentPaymentLinks[0];
             try {
-                $changed = $this->stripeWriter->deactivatePaymentLink($paymentLinks[0]);
+                $changed = $this->stripeWriter->deactivatePaymentLink($currentPaymentLink);
             } catch (CleanupGatewayException $exception) {
                 $outcomes[] = new CleanupItemOutcome(
                     $invoiceNumber,
-                    $paymentLinkId,
+                    $currentPaymentLink->id(),
                     $exception->result(),
                     true,
                     false,
@@ -185,7 +210,7 @@ final readonly class CleanupService
 
             $outcomes[] = new CleanupItemOutcome(
                 $invoiceNumber,
-                $paymentLinkId,
+                $currentPaymentLink->id(),
                 $changed ? OperatorResult::SUCCESS : OperatorResult::NO_CHANGE,
                 true,
                 $changed,

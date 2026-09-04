@@ -41,6 +41,8 @@ final class ReconciliationPlanner
             return ReconciliationPlan::noChange('No Stripe Payment Link matches the exact Kimai invoice identity.');
         }
 
+        $paymentLinkIds = [];
+
         foreach ($logicalCandidates as $candidate) {
             if (!$this->sameMoney($expected, $candidate->paymentLinkMetadata())) {
                 return ReconciliationPlan::conflict(
@@ -48,57 +50,74 @@ final class ReconciliationPlanner
                     $candidate,
                 );
             }
+
+            $paymentLinkIds[$candidate->paymentLinkId()] = true;
         }
 
-        if (count($logicalCandidates) > 1) {
+        if (count($paymentLinkIds) > 1) {
             return ReconciliationPlan::conflict(
                 'Multiple Payment Links match the same exact Kimai invoice identity.',
                 $logicalCandidates[0],
             );
         }
 
-        $candidate = $logicalCandidates[0];
+        foreach ($logicalCandidates as $candidate) {
+            if (!$this->childMetadataMatches($expected, $candidate)) {
+                return ReconciliationPlan::manualReview(
+                    'Stripe child-object metadata is inconsistent with the Payment Link identity.',
+                    $candidate,
+                );
+            }
 
-        if (!$this->childMetadataMatches($expected, $candidate)) {
-            return ReconciliationPlan::manualReview(
-                'Stripe child-object metadata is inconsistent with the Payment Link identity.',
-                $candidate,
-            );
-        }
+            if ($this->hasFinancialConflict($expected, $candidate)) {
+                return ReconciliationPlan::conflict(
+                    'Stripe payment evidence conflicts with the exact Kimai invoice amount or currency.',
+                    $candidate,
+                );
+            }
 
-        if ($this->hasFinancialConflict($expected, $candidate)) {
-            return ReconciliationPlan::conflict(
-                'Stripe payment evidence conflicts with the exact Kimai invoice amount or currency.',
-                $candidate,
-            );
-        }
+            if (!$this->relationshipsAreConsistent($candidate)) {
+                return ReconciliationPlan::manualReview(
+                    'Stripe object relationships are incomplete or contradictory for automatic reconciliation.',
+                    $candidate,
+                );
+            }
 
-        if (!$this->relationshipsAreConsistent($candidate)) {
-            return ReconciliationPlan::manualReview(
-                'Stripe object relationships are incomplete or contradictory for automatic reconciliation.',
-                $candidate,
-            );
-        }
-
-        if ($this->hasRefundOrDispute($candidate)) {
-            return ReconciliationPlan::manualReview(
-                'Stripe reports a refund or dispute that requires accounting review.',
-                $candidate,
-            );
+            if ($this->hasRefundOrDispute($candidate)) {
+                return ReconciliationPlan::manualReview(
+                    'Stripe reports a refund or dispute that requires accounting review.',
+                    $candidate,
+                );
+            }
         }
 
         if ($kimaiPaid) {
-            return ReconciliationPlan::noChange('Kimai already records the invoice as paid.', $candidate);
+            return ReconciliationPlan::noChange('Kimai already records the invoice as paid.', $logicalCandidates[0]);
         }
 
-        if (!$this->hasCompleteSuccessfulEvidence($expected, $candidate)) {
-            return ReconciliationPlan::noChange(
-                'Stripe evidence does not yet prove a complete successful captured payment.',
-                $candidate,
+        $successfulCandidates = [];
+
+        foreach ($logicalCandidates as $candidate) {
+            if ($this->hasCompleteSuccessfulEvidence($expected, $candidate)) {
+                $successfulCandidates[] = $candidate;
+            }
+        }
+
+        if (count($successfulCandidates) > 1) {
+            return ReconciliationPlan::manualReview(
+                'Multiple successful Stripe payments match the same Kimai invoice.',
+                $successfulCandidates[0],
             );
         }
 
-        return ReconciliationPlan::markPaid($candidate);
+        if (count($successfulCandidates) === 1) {
+            return ReconciliationPlan::markPaid($successfulCandidates[0]);
+        }
+
+        return ReconciliationPlan::noChange(
+            'Stripe evidence does not yet prove a complete successful captured payment.',
+            $logicalCandidates[0],
+        );
     }
 
     private function sameLogicalInvoice(InvoiceMetadata $expected, InvoiceMetadata $actual): bool
@@ -156,6 +175,10 @@ final class ReconciliationPlanner
         }
 
         if ($charge !== null && ($charge->amount() !== $expectedAmount || $charge->currency() !== $expectedCurrency)) {
+            return true;
+        }
+
+        if ($charge !== null && $charge->amountCaptured() > 0 && $charge->amountCaptured() !== $expectedAmount) {
             return true;
         }
 
@@ -217,6 +240,7 @@ final class ReconciliationPlanner
             && $intent->amountReceived() === $expected->money()->minorUnits()
             && $charge->paid()
             && $charge->captured()
+            && $charge->amountCaptured() === $expected->money()->minorUnits()
             && !$charge->refunded()
             && !$charge->disputed()
             && $charge->amountRefunded() === 0;

@@ -15,6 +15,7 @@ readonly PROJECT_NAME="kimai-stripe-connector-e2e-${GITHUB_RUN_ID:-local}-${GITH
 readonly PLUGIN_NAME="KimaiStripeConnectorBundle"
 readonly PLUGIN_PATH="/opt/kimai/var/plugins/${PLUGIN_NAME}"
 readonly KIMAI_CONSOLE="/opt/kimai/bin/console"
+readonly KIMAI_RUNTIME_USER="33:33"
 
 readonly DB_USER="kimaiuser"
 readonly DB_PASSWORD="e2e-kimai-password"
@@ -33,6 +34,11 @@ PLUGIN_STAGE=""
 
 compose() {
   docker compose --project-name "${PROJECT_NAME}" --file "${COMPOSE_FILE}" "$@"
+}
+
+kimai_console() {
+  compose exec --user "${KIMAI_RUNTIME_USER}" --no-TTY kimai \
+    "${KIMAI_CONSOLE}" "$@"
 }
 
 diagnostics() {
@@ -115,7 +121,9 @@ compose up --detach --wait --wait-timeout 240
 # plugin volume belongs only to this Compose project and is destroyed by cleanup.
 compose exec --user root --no-TTY kimai mkdir -p "${PLUGIN_PATH}"
 compose cp "${PLUGIN_STAGE}/." "kimai:${PLUGIN_PATH}"
-compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:reload --env=prod
+# The image serves Kimai as UID/GID 33. Cache-writing console commands must use the
+# same runtime identity so a reload cannot leave Apache with an unwritable cache.
+kimai_console kimai:reload --env=prod
 
 compose exec --no-TTY kimai php -r '
 require "/opt/kimai/vendor/autoload.php";
@@ -127,8 +135,7 @@ exit(class_exists("KimaiPlugin\\KimaiStripeConnectorBundle\\KimaiStripeConnector
 # autowiring of the Kimai repository/service dependencies without requiring a
 # Stripe credential or performing Stripe access or financial mutation.
 reconciliation_output="$(
-  compose exec --no-TTY kimai \
-    "${KIMAI_CONSOLE}" kimai:stripe:reconcile --dry-run --env=prod
+  kimai_console kimai:stripe:reconcile --dry-run --env=prod
 )"
 if [[ "${reconciliation_output}" != *"[NO_CHANGE]"* ]]; then
   echo "error: disabled reconciliation command did not report NO_CHANGE" >&2
@@ -137,8 +144,7 @@ if [[ "${reconciliation_output}" != *"[NO_CHANGE]"* ]]; then
 fi
 
 cleanup_output="$(
-  compose exec --no-TTY kimai \
-    "${KIMAI_CONSOLE}" kimai:stripe:cleanup --dry-run --env=prod
+  kimai_console kimai:stripe:cleanup --dry-run --env=prod
 )"
 if [[ "${cleanup_output}" != *"[NO_CHANGE]"* ]]; then
   echo "error: disabled cleanup command did not report NO_CHANGE" >&2
@@ -146,12 +152,12 @@ if [[ "${cleanup_output}" != *"[NO_CHANGE]"* ]]; then
   exit 1
 fi
 
-compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:version
+kimai_console kimai:version
 
 # Verify that the plugin can be removed cleanly and that a fresh Kimai CLI process
 # no longer resolves the bundle afterwards.
 compose exec --user root --no-TTY kimai rm -rf "${PLUGIN_PATH}"
-compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:reload --env=prod
+kimai_console kimai:reload --env=prod
 
 compose exec --no-TTY kimai php -r '
 require "/opt/kimai/vendor/autoload.php";

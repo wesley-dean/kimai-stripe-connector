@@ -16,6 +16,7 @@ readonly PROJECT_NAME="kimai-stripe-connector-hosted-${GITHUB_RUN_ID:-local}-${G
 readonly PLUGIN_NAME="KimaiStripeConnectorBundle"
 readonly PLUGIN_PATH="/opt/kimai/var/plugins/${PLUGIN_NAME}"
 readonly KIMAI_CONSOLE="/opt/kimai/bin/console"
+readonly KIMAI_RUNTIME_USER="33:33"
 readonly EVIDENCE_HELPER="/tmp/stripe-hosted-evidence.php"
 readonly API_TOKEN="phase7b-e2e-api-token"
 readonly ADMIN_EMAIL="e2e@example.invalid"
@@ -44,6 +45,11 @@ compose() {
     --file "${COMPOSE_FILE}" \
     --file "${STRIPE_COMPOSE_FILE}" \
     "$@"
+}
+
+kimai_console() {
+  compose exec --user "${KIMAI_RUNTIME_USER}" --no-TTY kimai \
+    "${KIMAI_CONSOLE}" "$@"
 }
 
 mysql_query() {
@@ -191,7 +197,10 @@ compose up --detach --wait --wait-timeout 240
 
 compose exec --user root --no-TTY kimai mkdir -p "${PLUGIN_PATH}"
 compose cp "${PLUGIN_STAGE}/." "kimai:${PLUGIN_PATH}"
-compose exec --no-TTY kimai "${KIMAI_CONSOLE}" kimai:reload --env=prod
+# The image starts as root, but Apache serves Kimai as UID/GID 33. Running cache-
+# writing console commands as root after startup makes the warmed cache unwritable
+# to Apache. Keep every Kimai console command on the same runtime identity.
+kimai_console kimai:reload --env=prod
 compose cp "${SCRIPT_DIR}/stripe-hosted-evidence.php" "kimai:${EVIDENCE_HELPER}"
 STRIPE_HELPER_READY=true
 
@@ -246,8 +255,7 @@ VALUES
 " > /dev/null
 
 invoice_create_output="$(
-  compose exec --no-TTY kimai \
-    "${KIMAI_CONSOLE}" kimai:invoice:create \
+  kimai_console kimai:invoice:create \
     --user="${ADMIN_EMAIL}" \
     --project="${project_id}" \
     --start="${fixture_date}" \
@@ -315,8 +323,7 @@ if [[ "$(jq -er '.status | strings' <<< "${invoice_before_reconcile}")" == "paid
 fi
 
 reconciliation_dry_run="$(
-  compose exec --no-TTY kimai \
-    "${KIMAI_CONSOLE}" kimai:stripe:reconcile --dry-run --env=prod
+  kimai_console kimai:stripe:reconcile --dry-run --env=prod
 )"
 if [[ "${reconciliation_dry_run}" != *"[SUCCESS] invoice=${invoice_number} would_change=yes changed=no"* ]]; then
   echo "error: reconciliation dry-run did not prove the expected paid transition" >&2
@@ -325,8 +332,7 @@ if [[ "${reconciliation_dry_run}" != *"[SUCCESS] invoice=${invoice_number} would
 fi
 
 reconciliation_output="$(
-  compose exec --no-TTY kimai \
-    "${KIMAI_CONSOLE}" kimai:stripe:reconcile --env=prod
+  kimai_console kimai:stripe:reconcile --env=prod
 )"
 if [[ "${reconciliation_output}" != *"[SUCCESS] invoice=${invoice_number} would_change=yes changed=yes"* ]]; then
   echo "error: reconciliation did not apply the exact Kimai paid transition" >&2
@@ -345,8 +351,7 @@ if [[ "$(jq -r '.paymentDate // empty' <<< "${invoice_after_reconcile}")" == "" 
 fi
 
 reconciliation_second_run="$(
-  compose exec --no-TTY kimai \
-    "${KIMAI_CONSOLE}" kimai:stripe:reconcile --env=prod
+  kimai_console kimai:stripe:reconcile --env=prod
 )"
 if [[ "${reconciliation_second_run}" != *"[NO_CHANGE] invoice=${invoice_number} would_change=no changed=no"* ]]; then
   echo "error: reconciliation rerun was not idempotent" >&2

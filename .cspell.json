@@ -102,6 +102,7 @@
     "trufflehogignore",
     "unconfigured",
     "unrepresentable",
+    "unwritable",
     "uroot",
     "vsct",
     "vsixmanifest",

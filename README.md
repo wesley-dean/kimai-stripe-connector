@@ -18,7 +18,10 @@ Kimai does not need public Internet ingress and Stripe webhooks are not required
 
 ## Project Status
 
-Phases 1 through 6 are merged.  Phase 7 compatibility and release evidence is in progress; the ADR-012 self-contained release-artifact path is implemented and under final validation.
+Phases 1 through 6 and Phase 7A are merged.  Phase 7A completed the ADR-012
+self-contained release-artifact path.  Phase 7b now implements the canonical
+Stripe-hosted sandbox payment harness; its stronger real-system claim remains
+pending one successful protected manual sandbox workflow run.
 
 The repository now contains:
 
@@ -28,6 +31,7 @@ The repository now contains:
 - PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer project-local tooling;
 - PHP 8.2–8.5 CI using the same locked dependency graph;
 - a disposable Kimai 2.65.0 + MySQL plugin-lifecycle E2E harness that installs the generated ZIP itself;
+- a manual hosted-payment E2E harness that creates a real disposable Kimai invoice, waits for Stripe-hosted test Checkout, verifies the paid object chain, reconciles Kimai, and proves an idempotent rerun;
 - PHP-aware MegaLinter configuration with auto-fixes disabled;
 - Doxygen/PHPDoc source-documentation standards and generated reference tooling;
 - production Payment Link generation/recovery through Kimai's invoice pre-render seam;
@@ -41,7 +45,11 @@ The repository now contains:
 - an operator runbook covering routine operation, incidents, disablement, and manual fallback; and
 - detailed installation/design/testing/threat/configuration/handoff documentation.
 
-The major remaining Phase 7 evidence gap is the full Stripe-hosted sandbox card payment -> real Session/PaymentIntent/Charge -> reconciliation command -> exact Kimai paid-state transition and idempotent rerun.  That proof remains separate from release packaging and must not be inferred from lower-layer green tests.
+The remaining Phase 7b evidence gap is execution rather than design: the protected
+manual `Stripe Sandbox` workflow must complete one real Stripe-hosted test-card
+Checkout on the candidate head and then pass the Session/PaymentIntent/Charge,
+paid-state, payment-date, idempotence, and run-owned cleanup assertions.  Until
+that happens, the hosted path is implemented but not yet claimed as proven.
 
 ## Installation
 
@@ -282,7 +290,7 @@ See [`doc/testing/test-matrix.md`](doc/testing/test-matrix.md).
 
 `tests/e2e/` contains a real Kimai lifecycle harness based closely on Kimai's documented Docker Compose deployment.
 
-Each run:
+Each ordinary non-credentialed run:
 
 ```text
 creates fresh Compose project + named volumes
@@ -306,6 +314,38 @@ docker compose down --volumes --remove-orphans
 ```
 
 The long-lived dogfooding Kimai instance is not the E2E fixture.
+
+### Hosted Stripe payment E2E
+
+`tests/e2e/run-stripe-hosted.sh` reuses the same disposable Kimai base and
+self-contained release artifact, then enables Payment Link generation and
+reconciliation through `tests/e2e/compose.stripe.yaml`.
+
+Each run receives a fresh Kimai instance UUID, creates a deterministic `$12.34`
+USD Kimai invoice through `kimai:invoice:create`, lets the production invoice
+subscriber create the Stripe Payment Link, and prints that Stripe-hosted URL for a
+human test-card payment.  `tests/e2e/stripe-hosted-evidence.php` waits for and
+validates the exact paid Checkout Session -> PaymentIntent -> Charge chain before
+reconciliation is allowed to proceed.
+
+The harness then requires:
+
+```text
+Kimai unpaid before reconciliation
+-> dry-run SUCCESS / would_change=yes / changed=no
+-> real reconciliation SUCCESS / would_change=yes / changed=yes
+-> exact Kimai invoice paid + paymentDate
+-> immediate rerun NO_CHANGE / would_change=no / changed=no
+-> run-owned Payment Link deactivation
+```
+
+The hosted harness refuses live-mode Stripe credentials.  Its Stripe cleanup is
+scoped to connector-managed links carrying only the current run's fresh instance
+UUID; it performs no global sandbox cleanup.
+
+`.github/workflows/stripe-sandbox.yml` remains manual-only and protected by the
+`stripe-sandbox` environment.  The repository does not claim this hosted flow is
+proven until that workflow actually passes after the human Checkout action.
 
 ## Development Commands
 
@@ -334,6 +374,16 @@ make package-check
 
 `make e2e` builds the production package and installs that ZIP into disposable Kimai.  It requires Docker with Compose, Composer, `zip`, and `unzip` on `PATH`; it does not rely on the repository-root development `vendor/` tree.
 
+The credentialed hosted harness additionally requires `curl`, `jq`, and
+`STRIPE_SANDBOX_RESTRICTED_KEY`:
+
+```text
+STRIPE_SANDBOX_RESTRICTED_KEY=... bash tests/e2e/run-stripe-hosted.sh
+```
+
+Do not commit or paste the key merely to run the test.  The protected GitHub
+Actions workflow is the preferred shared execution path.
+
 The generated Doxygen reference tree lives under ignored `doc/reference/`.
 
 ## Quality Gates
@@ -353,8 +403,9 @@ The repository also runs:
 
 - PHP 8.2–8.5 against the committed lockfile with PHPUnit, PHPStan, PHPCS, and PHP-CS-Fixer;
 - deterministic package contract/reproducibility CI;
-- disposable Kimai E2E using the generated package ZIP; and
-- Doxygen generation with warnings treated as failures.
+- disposable Kimai E2E using the generated package ZIP;
+- Doxygen generation with warnings treated as failures; and
+- a protected manual Stripe Sandbox workflow for contracts that require the real Stripe sandbox.
 
 Dependabot covers GitHub Actions and Composer dependencies.  Semver/release automation is intentionally retained during initial development; frequent patch releases are acceptable and useful for visible progress.
 

@@ -43,8 +43,8 @@ The fixed credentials in `compose.yaml` are non-production fixtures scoped to th
 disposable environment.  The database URL itself is assembled by `run.sh` at
 runtime instead of being stored as a literal connection URI in the repository.
 Real Stripe sandbox credentials are supplied separately through CI/runtime secret
-injection when Stripe E2E coverage is enabled; they are never stored in this
-Compose file.
+injection when Stripe E2E coverage is enabled; they are never stored in Compose or
+committed test data.
 
 ## Release-artifact installation
 
@@ -70,9 +70,9 @@ The harness extracts that ZIP, verifies it contains plugin-local
 `vendor/autoload.php`, rejects repository-only `tests/` and `.github/` paths, and
 copies the extracted `KimaiStripeConnectorBundle/` directory into Kimai.
 
-This distinction is deliberate: lifecycle E2E now validates the same artifact
-shape intended for release rather than reconstructing a merely similar
-production-shaped tree independently from the packaging code.
+This distinction is deliberate: lifecycle E2E validates the same artifact shape
+intended for release rather than reconstructing a merely similar production-shaped
+tree independently from the packaging code.
 
 The separate package contract under `tests/package/` additionally proves package
 contents, SHA-256 generation, production dependency autoloading, and byte-for-byte
@@ -95,8 +95,8 @@ recent Kimai/database logs before the cleanup trap removes the environment.
 
 ## Current lifecycle test
 
-The harness proves normal plugin lifecycle plus safe production-container
-construction of both scheduler-facing commands:
+The ordinary non-credentialed harness proves normal plugin lifecycle plus safe
+production-container construction of both scheduler-facing commands:
 
 ```text
 construct fresh Kimai + MySQL
@@ -125,12 +125,77 @@ Kimai plugin rather than a modification to Kimai core.
 
 The lifecycle harness does not authorize an active cleanup operation against a
 real Stripe account.  Stripe mutation behavior is covered separately through the
-locked SDK with a scripted HTTP boundary and the existing manual sandbox contract
-probe.
+locked SDK, controlled HTTP tests, and the explicitly invoked sandbox flows.
+
+## Hosted Stripe payment harness
+
+`run-stripe-hosted.sh` is the Phase 7b executable harness for the canonical paid
+business flow.  It is intentionally separate from `make e2e` because it requires a
+real restricted Stripe test credential and one human-hosted Checkout action.
+
+The harness:
+
+```text
+constructs fresh Kimai + MySQL
+-> generates a fresh Kimai instance UUID for this disposable deployment
+-> builds and installs the same self-contained release artifact
+-> creates disposable customer/project/activity/timesheet data through Kimai's API
+-> creates a real Kimai invoice through kimai:invoice:create
+-> lets the production InvoicePreRenderEvent subscriber create the Payment Link
+-> verifies exactly one active $12.34 USD card-only Payment Link
+-> prints the Stripe-hosted test Checkout URL
+-> waits for the operator to complete the test-card payment
+-> proves exact Session / PaymentIntent / Charge evidence
+-> proves Kimai is still unpaid before reconciliation
+-> runs reconciliation in dry-run mode and requires would_change=yes
+-> runs real reconciliation and requires changed=yes
+-> verifies the exact Kimai invoice is paid with a payment date
+-> reruns reconciliation and requires an idempotent NO_CHANGE
+-> deactivates run-owned Stripe Payment Links
+-> destroys all disposable Kimai/MySQL state
+```
+
+The Stripe evidence helper deliberately checks the same successful-payment
+predicates used by production reconciliation: exact connector metadata, amount,
+currency, object relationships, a complete/paid Checkout Session, succeeded and
+fully received PaymentIntent, captured Charge, zero refund, and no dispute.
+
+Every hosted run generates a new `KIMAI_STRIPE_CONNECTOR_INSTANCE_ID`.  That is
+intentional: each run is a genuinely new disposable Kimai deployment, and its
+unique namespace prevents old deactivated sandbox links from becoming ambiguous
+same-invoice evidence in later runs.
+
+The only direct database fixture operations are test-owned setup seams for a
+bearer API token and invoice template.  Customer/project/activity/timesheet setup
+uses Kimai's API, and invoice creation uses Kimai's own `kimai:invoice:create`
+command so the production pre-render event path is exercised.
+
+The harness refuses a live-mode Stripe credential.  Its EXIT/INT/TERM cleanup only
+deactivates connector-managed Payment Links carrying the current run's unique
+instance UUID; it never performs global sandbox cleanup.
+
+## Manual Stripe Sandbox workflow
+
+`.github/workflows/stripe-sandbox.yml` remains `workflow_dispatch` only and uses
+the protected `stripe-sandbox` GitHub Actions environment.  The workflow first
+runs the existing restricted-key contract probe and then starts the hosted-payment
+harness.
+
+The Stripe secret is injected only into steps that require it.  Checkout, PHP
+setup, and dependency installation do not receive the credential.
+
+During the hosted step, the Actions log displays an `ACTION REQUIRED` block with a
+Stripe-hosted Payment Link and the public Stripe success-card test data.  The job
+waits up to 15 minutes by default for that browser payment, then continues through
+reconciliation and idempotence automatically.
+
+The presence of this harness in the repository is not itself evidence that the
+hosted flow has passed.  The stronger Phase 7b claim requires a successful real
+manual sandbox workflow run.
 
 ## Running locally
 
-Requirements:
+Ordinary lifecycle requirements:
 
 - Docker with the Compose plugin;
 - Composer available on `PATH`;
@@ -152,21 +217,15 @@ For package-only validation without starting Kimai, run:
 make package-check
 ```
 
-## Future Stripe E2E
-
-The same disposable Kimai environment can be extended with the high-value real
-Stripe sandbox flow described in `doc/testing/e2e-stripe-sandbox.md`:
+The hosted-payment harness additionally requires `curl`, `jq`, and the restricted
+Stripe sandbox key in `STRIPE_SANDBOX_RESTRICTED_KEY`:
 
 ```text
-real disposable Kimai invoice
--> connector-created Payment Link
--> Stripe-hosted sandbox card Checkout
--> real Checkout Session / PaymentIntent / Charge evidence
--> reconciliation command
--> exact Kimai paid-state transition
--> idempotent reconciliation rerun
+STRIPE_SANDBOX_RESTRICTED_KEY=... bash tests/e2e/run-stripe-hosted.sh
 ```
 
-That full hosted-payment path is intentionally not claimed by the current
-lifecycle harness.  Stripe-side cleanup is separate from Docker cleanup because
-Stripe is an external service.
+Do not paste or commit the key merely to run this test.  The preferred shared
+execution path is the protected manual GitHub Actions workflow described above.
+
+See `doc/testing/e2e-stripe-sandbox.md` for the governing real-system strategy and
+claim boundaries.

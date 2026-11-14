@@ -45,6 +45,53 @@ PHP_PHPSTAN_CONFIG_FILE: phpstan.neon.dist
 PHP_PHPCSFIXER_CONFIG_FILE: .php-cs-fixer.dist.php
 SPELL_CSPELL_CONFIG_FILE: .cspell.json
 
+# Symfony's service schema includes an optional 'constructor' property that
+# triggers a v8r 6.1.0/Ajv false positive for this valid service definition.
+# Disposable Kimai E2E compiles the plugin's production service container.
+# Exclude only this file from v8r; Prettier and yamllint still check its YAML.
+# See: https://github.com/ajv-validator/ajv-cli/issues/223
+YAML_V8R_FILTER_REGEX_EXCLUDE: '^Resources/config/services\.yaml  Keep
+# its prose and table whitespace unchanged; maintained Markdown remains subject to
+# markdownlint and markdown-table-formatter.
+MARKDOWN_MARKDOWNLINT_FILTER_REGEX_EXCLUDE: >-
+  ^doc/adr/rationale/
+
+# The ADR-001 rationale and pre-implementation mock exercise are historical design
+# evidence.  Their table whitespace is not a maintained presentation contract, so
+# do not rewrite those records solely to satisfy the table formatter.  Markdownlint
+# still validates the mock exercise normally.
+MARKDOWN_MARKDOWN_TABLE_FORMATTER_FILTER_REGEX_EXCLUDE: >-
+  ^(doc/adr/rationale/|doc/testing/preimplementation-mock-exercise\.md$)
+
+# Zizmor needs the workflow token for online audits of pinned public actions.
+# MegaLinter filters environment variables from linters unless explicitly allowed.
+ACTION_ZIZMOR_UNSECURED_ENV_VARIABLES:
+  - GITHUB_TOKEN
+
+# Use Prettier for JavaScript code formatting.
+JAVASCRIPT_DEFAULT_STYLE: prettier
+
+# This repository is private and does not upload MegaLinter SARIF.  More
+# importantly, the project-locked PHPStan does not provide a SARIF formatter, so
+# enabling the reporter causes MegaLinter to fail before PHPStan analyzes code.
+# Disabling this reporter changes output format only; PHPStan remains blocking.
+SARIF_REPORTER: false
+
+# Don't scan the .git directory GitHub creates at runtime.
+REPOSITORY_TRUFFLEHOG_ARGUMENTS: "--exclude-paths=.trufflehogignore"
+
+# Make sure Terraform modules are present when Checkov is applicable.
+REPOSITORY_CHECKOV_ARGUMENTS: "--download-external-modules true"
+
+# Make sure Common Platform Enumerations (CPEs) are present when Grype is applicable.
+REPOSITORY_GRYPE_ARGUMENTS: "--add-cpes-if-none"
+
+# Start each run with a clean report directory.
+CLEAR_REPORT_FOLDER: true
+
+# shfmt conventions for repository shell code.
+BASH_SHFMT_ARGUMENTS: -i 2 -bn -ci -sr -kp
+
 # The preserved ADR-001 rationale is intentionally a historical snapshot.  Keep
 # its prose and table whitespace unchanged; maintained Markdown remains subject to
 # markdownlint and markdown-table-formatter.

@@ -121,3 +121,15 @@ The complete original large proposed rationale is preserved under [`doc/adr/rati
 **Decision:** Use stable operator-facing categories `SUCCESS`, `NO_CHANGE`, `RETRYABLE`, `CONFIGURATION_ERROR`, `CONFLICT`, `MANUAL_REVIEW_REQUIRED`, and `INTERNAL_ERROR` across CLI behavior, logs, tests, and runbooks.  Reconciliation and cleanup both map those categories to stable exit codes `0`, `10`, `20`, `30`, `40`, and `50`, with successful categories sharing zero and safe batch execution returning the highest applicable mapped code.
 
 **Source:** [`ADR-013`](adr/ADR-013-use-stable-operator-result-taxonomy.md)
+
+## ADR-014: Migrate Routine Dependency Updates to Centrally Managed Renovate
+
+This repository enrolls in the existing Jenkins-hosted Renovate service through
+root `renovate.json` and disables scheduled Dependabot version-update PRs
+for each configured ecosystem. Independent Dependabot security updates,
+required checks, human code-owner approval, and reviewed immutable action
+SHAs remain protected. The existing architecture, Composer lockfile, payment reconciliation guarantees, and build/release contracts remain unchanged.
+Any temporarily moving action reference requires review before Renovate
+restores the immutable pin; successful Jenkins execution remains unverified.
+
+See [ADR-014](adr/ADR-014-migrate-routine-dependency-updates-to-renovate.md).

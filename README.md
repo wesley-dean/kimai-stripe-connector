@@ -452,3 +452,18 @@ That decision is not an immediate implementation blocker while the repository re
 ## Author
 
 - Wes Dean
+
+## Dependency Maintenance
+
+Routine dependency version updates are centrally managed through the
+Jenkins Renovate service, with explicit enrollment in root `renovate.json`.
+Scheduled Dependabot version-update proposals are disabled using
+`open-pull-requests-limit: 0` for each configured ecosystem. Dependabot
+security updates and vulnerability alerts remain independent. Existing
+bot-scoped non-major Dependabot auto-merge controls remain for security
+PRs; human code-owner approval and required checks still govern Renovate.
+
+Routine Dependabot PRs are closed with a migration reference. The
+configuration itself does not prove that Jenkins has run or produced an
+equivalent update. See
+[ADR-014](doc/adr/ADR-014-migrate-routine-dependency-updates-to-renovate.md).
